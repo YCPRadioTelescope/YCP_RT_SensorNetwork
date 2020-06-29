@@ -51,6 +51,9 @@ void loop() {
     
     TempEventFlag = false;
     Tempsensor1.getTemp();
+
+    //Comment from Wyatt: We will need to return the data from the sensor
+    //We are just printing it, we will need to return the data after we collect it
     
     /*
     sensors.requestTemperatures();
