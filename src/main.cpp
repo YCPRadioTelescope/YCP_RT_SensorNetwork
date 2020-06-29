@@ -1,14 +1,13 @@
 #include <OneWire.h>
-#include <DallasTemperature.h>
+//#include <DallasTemperature.h>
+#include "DS18B20.hpp"
 
-#define ONE_WIRE_BUS 10
+#define Temp1Pin 10
 
 // Create an IntervalTimer object 
 IntervalTimer myTimer;
 
-OneWire oneWire(ONE_WIRE_BUS);
-
-DallasTemperature sensors(&oneWire);
+TemperatureSensor Tempsensor1(Temp1Pin);
 
 int const TIMER_1MS = 1000;
 
@@ -28,7 +27,6 @@ void TimerEvent_ISR(){
 }
 
 void setup() {
-  sensors.begin();
   Serial.begin(9600);
   myTimer.begin(TimerEvent_ISR, TIMER_1MS);  // TimerEvent to run every millisecond
 }
@@ -37,17 +35,24 @@ void setup() {
 void loop() {
 
   if(TimerEventFlag){
-    
+
+    TimerEventFlag = false;
     tempcounter++;
     encodercounter++;
+
     //check if timer is over 1 millisecond
     if(tempcounter >= 1){
+
       tempcounter = 0;
       TempEventFlag = true;
     }
   }
   if(TempEventFlag){
+    
     TempEventFlag = false;
+    Tempsensor1.getTemp();
+    
+    /*
     sensors.requestTemperatures();
   
     Celsius = sensors.getTempCByIndex(0);
@@ -57,5 +62,6 @@ void loop() {
     Serial.print(" C  ");
     Serial.print(Fahrenheit);
     Serial.println(" F");
+    */
   }
 }
