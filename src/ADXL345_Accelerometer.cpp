@@ -44,10 +44,10 @@ void ADXL345::init(){
   powerOn();                     // Power on the ADXL345
 
   setInterruptMapping(ADXL345_INT_OVERRUNY_BIT, ADXL345_INT1_PIN);     // Map Overrun interruppt to int pin 1
-  setInterrupt(ADXL345_INT_OVERRUNY_BIT, 0);                           // Enable Overrun interrupt
+  setInterrupt(ADXL345_INT_OVERRUNY_BIT, 1);                           // Enable Overrun interrupt
   
   setInterruptMapping(ADXL345_INT_WATERMARK_BIT, ADXL345_INT1_PIN);    // Map Watermark interrupt to int pin 1
-  setInterrupt(ADXL345_INT_WATERMARK_BIT, 1);                          // Enable Watermark interrupt
+  setInterrupt(ADXL345_INT_WATERMARK_BIT, 0);                          // Disable Watermark interrupt (causes int pin to be constant)
   
   setRate(100);     // set sampe rate to 100 Hz
 }
@@ -59,7 +59,7 @@ void ADXL345::emptyFifo(){
   
   int x,y,z;   
   //Serial.println("Starting Fifo buffer read");
-  for(int i =0; i<=32; i++){                    // loop through fifo buffer and empty it
+  for(int i =0; i<32; i++){                    // loop through fifo buffer and empty it
     readAccel(&x, &y, &z);                 // reads acceleration
     delayMicroseconds(5);                       // minimum time between last read and start of the next read is 5 us
     // Serial.print(x);
