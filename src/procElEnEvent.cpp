@@ -2,7 +2,7 @@
 #include <procElEnEvent.h>
 
 //constants
-const int elEnPin = 18;
+const int elEnPin = 17;
 const int fromLow = 49;
 const int fromHigh = 449;
 const int toLow = 167;
