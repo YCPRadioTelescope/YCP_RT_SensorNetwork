@@ -42,14 +42,12 @@ ADXL345::ADXL345(int CS) {
 void ADXL345::init(){
 
   powerOn();                     // Power on the ADXL345
-
-  setInterruptMapping(ADXL345_INT_OVERRUNY_BIT, ADXL345_INT1_PIN);     // Map Overrun interruppt to int pin 1
-  setInterrupt(ADXL345_INT_OVERRUNY_BIT, 1);                           // Enable Overrun interrupt
   
   setInterruptMapping(ADXL345_INT_WATERMARK_BIT, ADXL345_INT1_PIN);    // Map Watermark interrupt to int pin 1
-  setInterrupt(ADXL345_INT_WATERMARK_BIT, 0);                          // Disable Watermark interrupt (causes int pin to be constant)
+  setInterrupt(ADXL345_INT_WATERMARK_BIT, 1);                          // Enable Watermark interrupt 
   
-  setRate(100);     // set sampe rate to 100 Hz
+  writeToI2C(ADXL345_FIFO_CTL,0b10111111);								// (10|stream mode) (1|triger to INT1) (11111|trigger at 32 samples)
+  setRate(800);     // set sampe rate to 800 Hz
 }
 
 
