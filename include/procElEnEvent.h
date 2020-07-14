@@ -1,3 +1,8 @@
 #include <Arduino.h>
 
-void procElEnEvent(void);
+class ElevationEncoder
+{
+public:
+    ElevationEncoder();
+    void procElEnEvent(void);
+};

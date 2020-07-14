@@ -5,7 +5,12 @@
 const int zeroReset = 21;       //pin for the zeroReset wire
 const int zeroSet = 20;         //pin for the zeroSet wire
 
-void azEninit() {
+AzimuthEncoder::AzimuthEncoder(){
+    
+}
+
+
+void AzimuthEncoder::init() {
   //set pin mode for zero pins
   pinMode (zeroReset, OUTPUT);
   pinMode (zeroSet, OUTPUT);
@@ -16,7 +21,7 @@ void azEninit() {
   delay(100);
 }
 
-void procAzEnEvent() {
+void AzimuthEncoder::procAzEnEvent() {
   //create and initilze variables and arrays
   byte buffer[6] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
   unsigned long angleRaw = 0;               //using a long to be safe, max output data is 22 bits but we only have 11 bits of resolution

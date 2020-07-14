@@ -8,9 +8,13 @@ const int fromHigh = 449;
 const int toLow = 167;
 const int toHigh = 1538;
 
+ElevationEncoder::ElevationEncoder(){
+    
+}
+
 //function will later need to return the angle, can stay void while still printing output
 
-void procElEnEvent(void) {
+void ElevationEncoder::procElEnEvent(void) {
     //read data from elEn 
     int elEnDigData = analogRead(elEnPin);
     float elEnMapVolt = 0;

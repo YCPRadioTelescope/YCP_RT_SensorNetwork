@@ -1,4 +1,9 @@
 #include <SPI.h>
 
-void azEninit(void);
-void procAzEnEvent(void);
+class AzimuthEncoder
+{
+public:
+    AzimuthEncoder();
+    void init(void);
+    void procAzEnEvent(void);
+};
