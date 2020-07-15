@@ -1,17 +1,22 @@
 
 #include <OneWire.h>
+#include <Wire.h>
 #include "DS18B20.hpp"
 #include "ADXL345_Accelerometer.hpp"
 #include "procElEnEvent.h"
 #include "procAzEnEvent.h"
 
 #define Temp1Pin 10
-#define Adxl1IntPin 7
+#define Adxl0IntPin 7
+#define Adxl1IntPin 8
+#define Adxl2IntPin 9
 // Create an IntervalTimer object 
 IntervalTimer myTimer;
 
 TemperatureSensor tempsensor1(Temp1Pin);
-ADXL345 adxl = ADXL345();
+ADXL345 adxl0 = ADXL345(Wire);
+ADXL345 adxl1 = ADXL345(Wire1);
+ADXL345 adxl2 = ADXL345(Wire2);
 ElevationEncoder elencoder = ElevationEncoder();
 AzimuthEncoder azencoder = AzimuthEncoder();
 
@@ -25,7 +30,9 @@ bool TimerEventFlag = false;
 bool TempEventFlag = false;
 bool ElEncoderEventFlag = false;
 bool AZEncoderEventFlag = false;
-bool AccelEventFlag = true;         // init as true to empty 
+bool Accel0EventFlag = true;         // init as true to empty 
+bool Accel1EventFlag = true;         // init as true to empty 
+bool Accel2EventFlag = true;         // init as true to empty 
 
 // counters for each clock driven interrupt
 int tempcounter = 0;
@@ -41,18 +48,30 @@ void TimerEvent_ISR(){
 
 /********************* ISR *********************/
 /* Look for ADXL Interrupts     */
-void ADXL_ISR() {
-  AccelEventFlag = true;
+void ADXL0_ISR() {
+  Accel0EventFlag = true;
+
+}
+void ADXL1_ISR() {
+  Accel1EventFlag = true;
+
+}
+void ADXL2_ISR() {
+  Accel2EventFlag = true;
 
 }
 
 void setup() {
   Serial.begin(9600);
-  adxl.init();                               // initialize an ADXL345 to communicate using I2C
+  adxl0.init();                               // initialize an ADXL345 to communicate using I2C
+  adxl1.init();                               // initialize an ADXL345 to communicate using I2C
+  adxl2.init();                               // initialize an ADXL345 to communicate using I2C
   azencoder.init();                          // initialize azimuth encoder to communicate using SPI
   myTimer.begin(TimerEvent_ISR, TIMER_1MS);  // TimerEvent to run every millisecond
 
-  attachInterrupt(digitalPinToInterrupt(Adxl1IntPin), ADXL_ISR, RISING);   // Attach ADXL345 Interrupt
+  attachInterrupt(digitalPinToInterrupt(Adxl0IntPin), ADXL0_ISR, RISING);   // Attach ADXL345 Interrupt
+  attachInterrupt(digitalPinToInterrupt(Adxl1IntPin), ADXL1_ISR, RISING);   // Attach ADXL345 Interrupt
+  attachInterrupt(digitalPinToInterrupt(Adxl2IntPin), ADXL2_ISR, RISING);   // Attach ADXL345 Interrupt
 
 }
 
@@ -91,17 +110,28 @@ void loop() {
 
   }
 
-  if(AccelEventFlag){
-    //Serial.println("reading accel");
-    AccelEventFlag = false;
-    adxl.emptyFifo();      // gets the x y and z cordnates and prints them to the serial port. TODO: add return so data can be sent to the control room
+  if(Accel0EventFlag){
+    
+    Accel0EventFlag = false;
+    adxl0.emptyFifo();      // gets the x y and z cordnates and prints them to the serial port. TODO: add return so data can be sent to the control room
+  }
+  
+  if(Accel1EventFlag){
+    
+    Accel1EventFlag = false;
+    adxl1.emptyFifo();      // gets the x y and z cordnates and prints them to the serial port. TODO: add return so data can be sent to the control room
+  }
+
+  if(Accel2EventFlag){
+    
+    Accel2EventFlag = false;
+    adxl2.emptyFifo();      // gets the x y and z cordnates and prints them to the serial port. TODO: add return so data can be sent to the control room
   }
 
   if(TempEventFlag){
     
     TempEventFlag = false;
     tempsensor1.getTemp();         // gets the temperature and prints it to the serial port. TODO: add return so data can be sent to the control room
-
     
   }
   
@@ -109,7 +139,6 @@ void loop() {
     
     ElEncoderEventFlag = false;
     elencoder.procElEnEvent();         
-
     
   }
 
@@ -118,7 +147,6 @@ void loop() {
     AZEncoderEventFlag = false;
     azencoder.procAzEnEvent();         
 
-    
   }
 
 }

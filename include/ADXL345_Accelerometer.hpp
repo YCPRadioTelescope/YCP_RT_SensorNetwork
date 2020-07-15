@@ -1,5 +1,5 @@
 #include "Arduino.h"
-
+#include <Wire.h>
 #ifndef ADXL345_h
 #define ADXL345_h
 
@@ -92,12 +92,13 @@ class ADXL345
 {
 public:
 	bool status;					// Set When Error Exists 
-
+	
 	byte error_code;				// Initial State
 	double gains[3];				// Counts to Gs
+	int wirenumber;
 	
-	ADXL345();
-	ADXL345(int CS);
+	ADXL345(TwoWire& wire);
+	
 
     void init();
     void emptyFifo();
@@ -113,16 +114,13 @@ public:
     
 	
 private:
-	void writeTo(byte address, byte val);
 	void writeToI2C(byte address, byte val);
-	void writeToSPI(byte address, byte val);
-	void readFrom(byte address, int num, byte buff[]);
 	void readFromI2C(byte address, int num, byte buff[]);
-	void readFromSPI(byte address, int num, byte buff[]);
 	void setRegisterBit(byte regAdress, int bitPos, bool state);
 	bool getRegisterBit(byte regAdress, int bitPos);  
 	byte _buff[6] ;		//	6 Bytes Buffer
 	int _CS = 10;
+	TwoWire& accelwire;
 	bool I2C = true;
 	unsigned long SPIfreq = 5000000;
 };
