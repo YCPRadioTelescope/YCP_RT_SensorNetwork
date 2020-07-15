@@ -6,19 +6,14 @@
 #include "procAzEnEvent.h"
 
 #define Temp1Pin 10
-
+#define Adxl1IntPin 7
 // Create an IntervalTimer object 
 IntervalTimer myTimer;
 
-TemperatureSensor Tempsensor1(Temp1Pin);
+TemperatureSensor tempsensor1(Temp1Pin);
 ADXL345 adxl = ADXL345();
 ElevationEncoder elencoder = ElevationEncoder();
 AzimuthEncoder azencoder = AzimuthEncoder();
-
-
-/****************** INTERRUPT ******************/
-/*      Uncomment If Attaching Interrupt       */
-int interruptPin = 7;                 // Setup pin 7 to be the interrupt pin
 
 int const TIMER_1MS = 1000;
 
@@ -30,7 +25,7 @@ bool TimerEventFlag = false;
 bool TempEventFlag = false;
 bool ElEncoderEventFlag = false;
 bool AZEncoderEventFlag = false;
-bool AccelEventFlag = false;
+bool AccelEventFlag = true;         // init as true to empty 
 
 // counters for each clock driven interrupt
 int tempcounter = 0;
@@ -57,7 +52,7 @@ void setup() {
   azencoder.init();                          // initialize azimuth encoder to communicate using SPI
   myTimer.begin(TimerEvent_ISR, TIMER_1MS);  // TimerEvent to run every millisecond
 
-  attachInterrupt(digitalPinToInterrupt(interruptPin), ADXL_ISR, RISING);   // Attach Interrupt
+  attachInterrupt(digitalPinToInterrupt(Adxl1IntPin), ADXL_ISR, RISING);   // Attach ADXL345 Interrupt
 
 }
 
@@ -81,7 +76,7 @@ void loop() {
     }
 
     //check if elevation encoder is ready to be read. Read every 20ms
-    if(elcodercounter >= 20){
+    if(elcodercounter >= 20){//TODO: switch to constant
       
       elcodercounter = 0;
       ElEncoderEventFlag = true;
@@ -105,7 +100,7 @@ void loop() {
   if(TempEventFlag){
     
     TempEventFlag = false;
-    Tempsensor1.getTemp();         // gets the temperature and prints it to the serial port. TODO: add return so data can be sent to the control room
+    tempsensor1.getTemp();         // gets the temperature and prints it to the serial port. TODO: add return so data can be sent to the control room
 
     
   }
