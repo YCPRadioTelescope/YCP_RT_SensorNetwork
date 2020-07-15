@@ -109,7 +109,7 @@ void AzimuthEncoder::procAzEnEvent() {
   angleFinal = .175867 * angleRaw;
 
   //print final angle
-  Serial.print("Final angle: ");
+  Serial.print("Az angle: ");
   Serial.println(angleFinal);
 }
 
