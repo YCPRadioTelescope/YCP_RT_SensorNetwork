@@ -42,12 +42,14 @@ void AzimuthEncoder::procAzEnEvent() {
   SPI.endTransaction();  
 
   //print the raw data collected for debugging
+  /*
   Serial.print("Raw Data: ");
   for(int i=0; i<6; i++) {
   Serial.print(buffer[i], HEX);
   Serial.print(" ");
   }
   Serial.println();
+  */
   
   //first want to check what the flags are to ensure data is valid
   //check that first 15 bits are 0s
@@ -100,14 +102,14 @@ void AzimuthEncoder::procAzEnEvent() {
   angleRaw = (buffer[2] << 16) + (buffer[3] << 8) + buffer[4];
 
   //print raw angle for debugging
-  Serial.print("Raw angle: ");
-  Serial.println(angleRaw);
+  //Serial.print("Raw angle: ");
+  //Serial.println(angleRaw);
 
   //map the digital count to an angle based off a scaling function, decimal is result of 360/2047
   angleFinal = .175867 * angleRaw;
 
   //print final angle
-  Serial.print("Final angle: ");
+  Serial.print("Az angle: ");
   Serial.println(angleFinal);
 }
 
