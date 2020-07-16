@@ -2,7 +2,7 @@
 #include <procElEnEvent.h>
 
 //constants
-const int elEnPin = 17;
+const int elEnPin = 40;
 
 ElevationEncoder::ElevationEncoder(){
     
