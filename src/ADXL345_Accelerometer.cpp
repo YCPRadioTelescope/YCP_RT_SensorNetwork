@@ -33,7 +33,7 @@ void ADXL345::init(){
   setInterrupt(ADXL345_INT_WATERMARK_BIT, 1);                          // Enable Watermark interrupt 
   
   writeToI2C(ADXL345_FIFO_CTL,0b10111111);								// (10|stream mode) (1|triger to INT1) (11111|trigger at 32 samples)
-  setRate(800);     // set sampe rate to 800 Hz
+  setRate(100);     // set sampe rate to 800 Hz
   
 }
 

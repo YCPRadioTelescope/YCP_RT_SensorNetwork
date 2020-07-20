@@ -7,6 +7,7 @@
 #include "procAzEnEvent.h"
 
 #define Temp1Pin 2
+#define Temp2Pin 3
 #define Adxl0IntPin 7
 #define Adxl1IntPin 8
 #define Adxl2IntPin 9
@@ -14,6 +15,7 @@
 IntervalTimer myTimer;
 
 TemperatureSensor tempsensor1(Temp1Pin);
+TemperatureSensor tempsensor2(Temp2Pin);
 ADXL345 adxl0 = ADXL345(Wire);
 ADXL345 adxl1 = ADXL345(Wire1);
 ADXL345 adxl2 = ADXL345(Wire2);
@@ -132,7 +134,7 @@ void loop() {
     
     TempEventFlag = false;
     tempsensor1.getTemp();         // gets the temperature and prints it to the serial port. TODO: add return so data can be sent to the control room
-    
+    tempsensor2.getTemp();
   }
   
   if(ElEncoderEventFlag){
