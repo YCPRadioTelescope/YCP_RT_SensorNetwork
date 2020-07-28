@@ -1,5 +1,6 @@
 #include "Arduino.h"
-#include <Wire.h>
+#include <Wire.h> 
+#include <queue>
 #ifndef ADXL345_h
 #define ADXL345_h
 
@@ -88,11 +89,19 @@
 #define ADXL345_BAD_ARG		2		// Bad Argument
 
 
+struct acc
+{
+    int x;
+    int y;
+    int z;
+};
+
+
 class ADXL345
 {
 public:
 	bool status;					// Set When Error Exists 
-	
+	std::queue <acc> buffer;		// queue of acc buffers. This caused some references to be undefined in linker
 	byte error_code;				// Initial State
 	double gains[3];				// Counts to Gs
 	int wirenumber;
@@ -123,6 +132,7 @@ private:
 	TwoWire& accelwire;
 	bool I2C = true;
 	unsigned long SPIfreq = 5000000;
+	
 };
 void print_byte(byte val);
 #endif

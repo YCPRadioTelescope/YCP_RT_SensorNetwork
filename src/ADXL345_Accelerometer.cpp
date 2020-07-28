@@ -3,6 +3,11 @@
 #include <Wire.h>
 #include <SPI.h>
 
+extern "C"{		// this is a fix for undefined references in the linker due to queue initialization
+	int __exidx_start(){ return -1;}
+  	int __exidx_end(){ return -1; }
+}
+
 #define ADXL345_DEVICE (0x53)    // Device Address for ADXL345
 #define ADXL345_TO_READ (6)      // Number of Bytes Read - Two Bytes Per Axis
 
@@ -45,7 +50,9 @@ void ADXL345::emptyFifo(){
   int x,y,z;   
   //Serial.println("Starting Fifo buffer read");
   for(int i =0; i<32; i++){                    // loop through fifo buffer and empty it
+
     readAccel(&x, &y, &z);                 // reads acceleration
+	buffer.push({x,y,z});
     //delayMicroseconds(5);                       // minimum time between last read and start of the next read is 5 us
     // Serial.print(x);
     // Serial.print(", ");
@@ -54,7 +61,7 @@ void ADXL345::emptyFifo(){
     // Serial.println(z); 
   }
   //Serial.println(accelwire.);
-  Serial.println("Fifo buffer emptied");
+  //Serial.println("Fifo buffer emptied");
 
 }
 
