@@ -12,7 +12,7 @@ ElevationEncoder::ElevationEncoder(){
 
 void ElevationEncoder::procElEnEvent(void) {
    //declare a variable for the final angle
-    float outputAngle = 0; 
+    //float outputAngle = 0; 
 
     //read data from elEn 
     int elEnDigData = analogRead(elEnPin);
@@ -20,15 +20,15 @@ void ElevationEncoder::procElEnEvent(void) {
     //print digital number for debugging
     //Serial.print("Raw Digital Data: ");
     //Serial.println(elEnDigData);
-
+    buffer.push(elEnDigData);
     
 
     //equation translate the digital count to an angle, 49-50 means -8 degrees and 449-450 means 92 degrees
-    outputAngle = .25 * elEnDigData - 20.375;
+    //outputAngle = .25 * elEnDigData - 20.375;
 
     //print the angle translated for debugging
-    Serial.print("El En Angle: ");
-    Serial.println(outputAngle);
+    //Serial.print("El En Angle: ");
+    //Serial.println(outputAngle);
 
     //all code below is legacy, first attempt at mapping 
 /*

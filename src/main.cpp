@@ -1,6 +1,7 @@
 
 #include <OneWire.h>
 #include <Wire.h>
+#include "Teensy41TCP_IP.hpp"
 #include "DS18B20.hpp"
 #include "ADXL345_Accelerometer.hpp"
 #include "procElEnEvent.h"
@@ -78,20 +79,20 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(Adxl0IntPin), ADXL0_ISR, RISING);   // Attach ADXL345 Interrupt
   attachInterrupt(digitalPinToInterrupt(Adxl1IntPin), ADXL1_ISR, RISING);   // Attach ADXL345 Interrupt
   attachInterrupt(digitalPinToInterrupt(Adxl2IntPin), ADXL2_ISR, RISING);   // Attach ADXL345 Interrupt
-  //ethernet.init();
+  initEthernet();
 }
 
 // This is the super loop where we will be keeping track of counters, setting eventflags and calling proccess base on if any event flags were set
 void loop() {
-  
+
   if(TimerEventFlag){
 
     TimerEventFlag = false; 
 
     //increment each clock event counter by 1
     tempcounter++;
-    elcodercounter++;
-    azencoercounter++;
+    //elcodercounter++;
+    //azencoercounter++;
     ethernetcounter++;
 
     //check if temp sensors are ready to be read. Read every 1s
@@ -167,8 +168,15 @@ void loop() {
 
     EthernetEventFlag = false;
 
+    uint32_t dataSize = calcTransitSize(adxl0.buffer.size(), adxl1.buffer.size(), adxl2.buffer.size(), tempsensor1.buffer.size(), tempsensor2.buffer.size(),elencoder.buffer.size(),azencoder.buffer.size()); // determine the size of the array that needs to be alocated
+    uint8_t *dataToSend;
+    dataToSend = (uint8_t *)malloc(dataSize * sizeof(uint8_t)); //malloc needs to be used becaus stack size on the loop task is about 4k so this needs to go on the heap
     
+    prepairTransit(dataToSend, dataSize, &adxl0.buffer, &adxl1.buffer, &adxl2.buffer, &tempsensor1.buffer, &tempsensor2.buffer, &elencoder.buffer, &azencoder.buffer);
 
+    SendDataToControlRoom(dataToSend, dataSize);
+    
+    free(dataToSend);
   }
 
 }

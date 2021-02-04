@@ -6,6 +6,7 @@
 #include "Teensy41EthernetHelp/lwip/dhcp.h"
 #include "Teensy41EthernetHelp/lwip/tcp.h"
 #include "Teensy41EthernetHelp/lwip/stats.h"
+#include <queue>
 
 #define swap2 __builtin_bswap16
 #define swap4 __builtin_bswap32
@@ -18,11 +19,28 @@ uint32_t rtt;
 #define MASK "255.255.255.0"
 #define GW "192.168.1.1"
 
+#define DATA_TRANSMIT_ID 132
+
 // debug stats stuff
 extern "C" {
 #if LWIP_STATS
   struct stats_ lwip_stats;
 #endif
+}
+
+void ethernetloop()
+{
+  static uint32_t last_ms;
+  uint32_t ms;
+
+  enet_proc_input();
+
+  ms = millis();
+  if (ms - last_ms > 100)
+  {
+    last_ms = ms;
+    enet_poll();
+  }
 }
 
 void print_stats() {
@@ -111,13 +129,38 @@ err_t connect_callback(void *arg, struct tcp_pcb *tpcb, err_t err) {
   *(int *)arg = 1;
   return 0;
 }
-
-void tcptx(int pkts) {
-  // send to ttcp -r -s
-  char buff[1000];
+void InitalConnectToControlRoom(){
   ip_addr_t server;
   struct tcp_pcb * pcb;
-  int i, connected = 0;
+  int connected = 0;
+  err_t err;
+  uint32_t sendqlth;
+
+  Serial.println("tcptx");
+  inet_aton("169.254.205.177", &server);
+  pcb = tcp_new();
+  tcp_err(pcb, tcperr_callback);
+  tcp_arg(pcb, &connected);
+  tcp_bind(pcb, IP_ADDR_ANY, 3333);   // local port
+  sendqlth = tcp_sndbuf(pcb);
+  Serial.println(sendqlth);
+  do {
+    err = tcp_connect(pcb, &server, 139, connect_callback);
+    //Serial.print("err ");Serial.println(err);
+    ethernetloop();
+  } while (err < 0);
+  while (!connected) ethernetloop();
+  if (connected < 0) {
+    Serial.println("connect error");
+    return;  // err
+  }
+}
+void SendDataToControlRoom(uint8_t *buff, size_t buffSize) {
+  
+  // send to ttcp -r -s
+  ip_addr_t server;
+  struct tcp_pcb * pcb;
+  int connected = 0;
   err_t err;
   uint32_t t, sendqlth;
 
@@ -132,111 +175,29 @@ void tcptx(int pkts) {
   do {
     err = tcp_connect(pcb, &server, 139, connect_callback);
     //Serial.print("err ");Serial.println(err);
-    loop();
+    ethernetloop();
   } while (err < 0);
-  while (!connected) loop();
+  while (!connected) ethernetloop();
   if (connected < 0) {
     Serial.println("connect error");
     return;  // err
   }
+  
   t = micros();
-  for (i = 0; i < pkts; i++) {
-    do {
-      err = tcp_write(pcb, buff, sizeof(buff), TCP_WRITE_FLAG_COPY);
-      loop();   // keep checkin while we blast
-    } while ( err < 0);  // -1 is ERR_MEM
-    tcp_output(pcb);
-  }
-  while (tcp_sndbuf(pcb) != sendqlth) loop(); // wait til sent
+  do {
+    err = tcp_write(pcb, buff, buffSize, TCP_WRITE_FLAG_COPY);
+    ethernetloop();   // keep checkin while we blast
+  } while ( err < 0);  // -1 is ERR_MEM
+  tcp_output(pcb);
+  
+  while (tcp_sndbuf(pcb) != sendqlth) ethernetloop(); // wait til sent
   tcp_close(pcb);
   t = micros() - t;
-  Serial.print(t); Serial.print(" us  "); Serial.println(8.*pkts * sizeof(buff) / t);
+  Serial.print(t); Serial.print(" us  "); Serial.println(buffSize);
+  
 }
 
-static  struct tcp_pcb * pcbl;   // listen
-static struct tcp_pcb * pcba;   // accepted pcb
-volatile bool tcprx_running = true;
-
-void listen_err_callback(void * arg, err_t err)
-{
-  // set with tcp_err()
-  Serial.print("TCP listen err "); Serial.println(err);
-  *(int *)arg = err;
-}
-
-err_t accept_callback(void * arg, struct tcp_pcb * newpcb, err_t err) {
-  if (err || !newpcb) {
-    Serial.print("accept err "); Serial.println(err);
-    delay(100);
-    return 1;
-  }
-  Serial.println("accepted");
-  tcp_accepted(pcbl);    // ref says use listen pcb
-  pcba = newpcb;    // let tcprx proceed
-  return 0;
-}
-
-err_t recv_callback(void * arg, struct tcp_pcb * tpcb, struct pbuf * p, err_t err)
-{
-  static uint32_t t0 = 0, t, bytes = 0;
-
-  t = micros();
-  if (!t0) t0 = t;
-  if (p == NULL) {
-    // other end closed
-    t = t - t0;
-    Serial.println("remote closed");
-    Serial.print(bytes); Serial.print(" ");
-    Serial.print(t); Serial.print(" us   ");
-    Serial.println(8.*bytes / t);
-
-    tcp_close(tpcb);
-    tcprx_running = false;
-    bytes = 0;
-    t0 = 0;
-    return 0;
-  }
-#if 0
-  tcp_recved(tpcb, p->tot_len);  // data processed
-  bytes += p->tot_len;
-#else
-  // process q of pbuf's
-  uint32_t qbytes = 0;
-  struct pbuf *q;
-  for (q = p; q != NULL; q = q->next) {
-    qbytes += q->tot_len;
-  }
-  tcp_recved(tpcb, qbytes);  // data processed
-  bytes += qbytes;
-#endif
-  pbuf_free(p);
-  return 0;
-}
-
-void tcprx() {
-  struct tcp_pcb * pcb;
-
-  pcb = tcp_new();
-  tcp_bind(pcb, IP_ADDR_ANY, 5001); // server port
-  pcbl = tcp_listen(pcb);   // pcb deallocated
-  tcp_err(pcbl, listen_err_callback);
-  while (1) {
-    Serial.println("server listening on 5001");
-    pcba = NULL;    // accept PCB
-    tcp_accept(pcbl, accept_callback);
-    while (pcba == NULL)  {
-      loop();   // waiting connection
-    }
-    tcp_err(pcba, tcperr_callback);
-    tcp_recv(pcba, recv_callback);  // all the action is now in callback
-    while (tcprx_running) {
-      loop();  // wait til close
-    }
-    tcprx_running = true;
-  }   // while
-}
-
-void init()
+void initEthernet()
 {
 
   Serial.println(); Serial.print(F_CPU); Serial.print(" ");
@@ -270,10 +231,12 @@ void init()
   if (DHCP == 1)
     dhcp_start(netif_default);
 
-  while (!netif_is_link_up(netif_default)) loop(); // await on link up
+  while (!netif_is_link_up(netif_default)) ethernetloop(); // await on link up
   prregs();
 
-  tcptx(10000);
+  InitalConnectToControlRoom();
+  //SendDataToControlRoom();
+  //tcptx(10000);
   //tcprx();
 
 #if 0
@@ -287,4 +250,132 @@ void init()
     loop();  // poll
   }
 #endif
+}
+
+//retune number of 8 bit chars required to transmit the presented data
+uint32_t calcTransitSize(int16_t Acc0Size, int16_t Acc1Size, int16_t Acc2Size, int16_t Temp1Size, int16_t Temp2Size,int16_t ElEnSize,int32_t AzEnSize)
+{
+    uint32_t length = 1 + 16 + 4; //identifier + [16|ACCcount0,16|ACCcount1 ,16|ACCcount2,16|tmp1Count,16|Etmp2Count],16|Elencount|,32|Azencount|] + total data length
+    length += (Acc0Size * 6);
+    length += (Acc1Size * 6);
+    length += (Acc2Size * 6);
+    length += (Temp1Size * 2);
+    length += (Temp2Size * 2);
+    length += (ElEnSize * 2);
+    length += (AzEnSize * 4);
+    
+    return length;
+}
+
+struct acc
+{
+    int x;
+    int y;
+    int z;
+};
+void prepairTransit(uint8_t *reply, uint32_t dataSize, std::queue <acc> *Acc0Buffer, std::queue <acc> *Acc1Buffer, std::queue <acc> *Acc2Buffer, std::queue <int16_t> *Temp1Buffer, std::queue <int16_t> *Temp2Buffer, std::queue <int16_t> *ElEnBuffer, std::queue <int32_t> *AzEnBuffer)
+{
+  
+    //[16|ACCcount,16|AZetmpCount,16|ELetmpCount]
+    //acc data length = accDat.buffer.size() * 6
+    uint32_t i = 0;
+    reply[0] = DATA_TRANSMIT_ID;
+    reply[1] = (dataSize & 0xff000000) >> 24;
+    reply[2] = (dataSize & 0x00ff0000) >> 16;
+    reply[3] = (dataSize & 0x0000ff00) >> 8;
+    reply[4] = dataSize & 0x000000ff;
+
+    uint32_t acc0BufSize = Acc0Buffer->size();
+    reply[5] = ((acc0BufSize * 6) & 0xff00) >> 8;
+    reply[6] = ((acc0BufSize * 6) & 0x00ff);
+    uint32_t acc1BufSize = Acc1Buffer->size();
+    reply[7] = ((acc1BufSize * 6) & 0xff00) >> 8;
+    reply[8] = ((acc1BufSize * 6) & 0x00ff);
+    uint32_t acc2BufSize = Acc2Buffer->size();
+    reply[9] = ((acc2BufSize * 6) & 0xff00) >> 8;
+    reply[10] = ((acc2BufSize * 6) & 0x00ff);
+
+    uint32_t temp1BufSize = Temp1Buffer->size();
+    reply[11] = (temp1BufSize & 0xff00) >> 8;
+    reply[12] = (temp1BufSize & 0x00ff);
+
+    uint32_t temp2BufSize = Temp1Buffer->size();
+    reply[13] = (temp2BufSize & 0xff00) >> 8;
+    reply[14] = (temp2BufSize & 0x00ff);
+
+    uint32_t elEnBufSize = ElEnBuffer->size();
+    reply[15] = (elEnBufSize & 0xff00) >> 8;
+    reply[16] = (elEnBufSize & 0x00ff);
+
+    uint32_t azEnBufferSize = AzEnBuffer->size();
+    reply[17] = (azEnBufferSize & 0xff000000) >> 24;
+    reply[18] = (azEnBufferSize & 0x00ff0000) >> 16;
+    reply[19] = (azEnBufferSize & 0x0000ff00) >> 8;
+    reply[20] = azEnBufferSize & 0x000000ff;
+
+    i = 21;
+    for (uint32_t j = 0; j < acc0BufSize; j++)
+    {
+        acc current = Acc0Buffer->front();
+        reply[i++] = (current.x & 0xff00) >> 8;
+        reply[i++] = (current.x & 0x00ff);
+        reply[i++] = (current.y & 0xff00) >> 8;
+        reply[i++] = (current.y & 0x00ff);
+        reply[i++] = (current.z & 0xff00) >> 8;
+        reply[i++] = (current.z & 0x00ff);
+        Acc0Buffer->pop();
+    }
+    for (uint32_t j = 0; j < acc1BufSize; j++)
+    {
+        acc current = Acc1Buffer->front();
+        reply[i++] = (current.x & 0xff00) >> 8;
+        reply[i++] = (current.x & 0x00ff);
+        reply[i++] = (current.y & 0xff00) >> 8;
+        reply[i++] = (current.y & 0x00ff);
+        reply[i++] = (current.z & 0xff00) >> 8;
+        reply[i++] = (current.z & 0x00ff);
+        Acc1Buffer->pop();
+    }
+    for (uint32_t j = 0; j < acc2BufSize; j++)
+    {
+        acc current = Acc2Buffer->front();
+        reply[i++] = (current.x & 0xff00) >> 8;
+        reply[i++] = (current.x & 0x00ff);
+        reply[i++] = (current.y & 0xff00) >> 8;
+        reply[i++] = (current.y & 0x00ff);
+        reply[i++] = (current.z & 0xff00) >> 8;
+        reply[i++] = (current.z & 0x00ff);
+        Acc2Buffer->pop();
+    }
+    for (uint32_t j = 0; j < temp1BufSize; j++)
+    {
+        int16_t current = Temp1Buffer->front();
+        reply[i++] = (current & 0x00ff);
+        reply[i++] = (current & 0xff00) >> 8;
+        Temp1Buffer->pop();
+    }
+    for (uint32_t j = 0; j < temp2BufSize; j++)
+    {
+        int16_t current = Temp2Buffer->front();
+        reply[i++] = (current & 0x00ff);
+        reply[i++] = (current & 0xff00) >> 8;
+        Temp2Buffer->pop();
+    }
+    for (uint32_t j = 0; j < elEnBufSize; j++)
+    {
+        int16_t current = ElEnBuffer->front();
+        reply[i++] = (current & 0x00ff);
+        reply[i++] = (current & 0xff00) >> 8;
+        ElEnBuffer->pop();
+    }
+    for (uint32_t j = 0; j < azEnBufferSize; j++)
+    {
+        int32_t current = AzEnBuffer->front();
+        reply[i++] = (current & 0xff000000) >> 24;
+        reply[i++] = (current & 0x00ff0000) >> 16;
+        reply[i++] = (current & 0x0000ff00) >> 8;
+        reply[i++] = current & 0x000000ff;
+        AzEnBuffer->pop();
+    }
+    
 }

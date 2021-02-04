@@ -1,5 +1,6 @@
 #include "DS18B20.hpp"
 #include <OneWire.h>
+#include <queue>
 
 //constructor for temperature sensor 
 TemperatureSensor::TemperatureSensor(uint8_t line){
@@ -20,7 +21,7 @@ int TemperatureSensor::getTemp(){
   }
 
   if (OneWire::crc8(this->addr, 7) != this->addr[7]) {
-      Serial.println("CRC is not valid!");
+      //Serial.println("CRC is not valid!");
       return 0;
   }
 
@@ -58,12 +59,12 @@ int TemperatureSensor::getTemp(){
     else if (cfg == 0x40) raw = raw & ~1; // 11 bit res, 375 ms
     //// default is 12 bit resolution, 750 ms conversion time
   }
-  celsius = (float)raw / 16.0;
-  fahrenheit = celsius * 1.8 + 32.0;
-  Serial.print("  Temperature = ");
-  Serial.print(celsius);
-  Serial.print(" Celsius, ");
-  Serial.print(fahrenheit);
-  Serial.println(" Fahrenheit");
-    return 0;
+  //celsius = (float)raw / 16.0;
+  //fahrenheit = celsius * 1.8 + 32.0;
+  //Serial.print("  Temperature = ");
+  //Serial.print(celsius);
+  //Serial.print(" Celsius, ");
+  //Serial.print(fahrenheit);
+  //Serial.println(" Fahrenheit");
+  buffer.push(raw);
 }
