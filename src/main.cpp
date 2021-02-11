@@ -30,6 +30,11 @@ ADXL345 adxlCb = ADXL345(Wire2);
 ElevationEncoder elencoder = ElevationEncoder();
 AzimuthEncoder azencoder = AzimuthEncoder();
 
+//ethernet data
+byte mac[] = {0xDE, 0XAD, 0xBE, 0xEF, 0xFE, 0xED};
+
+
+
 int const TIMER_1MS = 1000;
 
 //IPAddress ControlRoomIP = IPAddress(169, 254, 205, 177);
@@ -107,7 +112,6 @@ void loop() {
 
     //check if elevation encoder is ready to be read. Read every 20ms
     if(elcodercounter >= 20){//TODO: switch to constant
-      
       elcodercounter = 0;
       ElEncoderEventFlag = true;
     }
@@ -120,6 +124,7 @@ void loop() {
     }
 
     if(ethernetcounter >= 1000){
+      Serial.println("Setting ethernet flag");
       ethernetcounter = 0;
       EthernetEventFlag = true;
       
@@ -171,7 +176,7 @@ void loop() {
   if(EthernetEventFlag){
 
     EthernetEventFlag = false;
-
+    Serial.println("sending data");
     uint32_t dataSize = calcTransitSize(adxlEl.buffer.size(), adxlAz.buffer.size(), adxlCb.buffer.size(), tempSensorEl1.buffer.size(), tempSensorAz2.buffer.size(),elencoder.buffer.size(),azencoder.buffer.size()); // determine the size of the array that needs to be alocated
     uint8_t *dataToSend;
     dataToSend = (uint8_t *)malloc(dataSize * sizeof(uint8_t)); //malloc needs to be used becaus stack size on the loop task is about 4k so this needs to go on the heap
