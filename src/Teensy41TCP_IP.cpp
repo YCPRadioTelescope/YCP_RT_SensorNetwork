@@ -15,7 +15,7 @@ uint32_t rtt;
 
 #define PHY_ADDR 0 /*for read/write PHY registers (check link status,...)*/
 #define DHCP 0
-#define IP "192.168.1.19"
+#define IP "192.168.0.123"
 #define MASK "255.255.255.0"
 #define GW "192.168.1.1"
 
@@ -137,7 +137,7 @@ void InitalConnectToControlRoom(){
   uint32_t sendqlth;
 
   Serial.println("tcptx");
-  inet_aton("169.254.205.177", &server);
+  inet_aton(IP, &server);
   pcb = tcp_new();
   tcp_err(pcb, tcperr_callback);
   tcp_arg(pcb, &connected);
@@ -165,7 +165,7 @@ void SendDataToControlRoom(uint8_t *buff, size_t buffSize) {
   uint32_t t, sendqlth;
 
   Serial.println("tcptx");
-  inet_aton("169.254.205.177", &server);
+  inet_aton(IP, &server);
   pcb = tcp_new();
   tcp_err(pcb, tcperr_callback);
   tcp_arg(pcb, &connected);

@@ -10,7 +10,7 @@ TemperatureSensor::TemperatureSensor(uint8_t line){
 int TemperatureSensor::getTemp(){
     byte i;
     byte data[12];
-    float celsius, fahrenheit;
+    //float celsius, fahrenheit;
     
     if ( !this->sensor.search(this->addr)) {
     //Serial.println("No more addresses.");
@@ -66,5 +66,7 @@ int TemperatureSensor::getTemp(){
   //Serial.print(" Celsius, ");
   //Serial.print(fahrenheit);
   //Serial.println(" Fahrenheit");
+  //Serial.println(raw);
   buffer.push(raw);
+  return 1;
 }

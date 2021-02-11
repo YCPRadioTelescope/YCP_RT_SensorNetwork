@@ -54,11 +54,11 @@ void ADXL345::emptyFifo(){
     readAccel(&x, &y, &z);                 // reads acceleration
 	buffer.push({x,y,z});
     //delayMicroseconds(5);                       // minimum time between last read and start of the next read is 5 us
-     Serial.print(x);
-     Serial.print(", ");
-     Serial.print(y);
-     Serial.print(", ");
-     Serial.println(z); 
+     //Serial.print(x);
+     //Serial.print(", ");
+     //Serial.print(y);
+     //Serial.print(", ");
+     //Serial.println(z); 
   }
   //Serial.println(accelwire.);
   //Serial.println("Fifo buffer emptied");
