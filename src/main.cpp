@@ -7,6 +7,7 @@
 #include "procElEnEvent.h"
 #include "procAzEnEvent.h"
 #include <queue>
+#include <NativeEthernet.h>
 
 #define TempEl1Pin 2
 #define TempEl2Pin 3
@@ -31,7 +32,14 @@ ElevationEncoder elencoder = ElevationEncoder();
 AzimuthEncoder azencoder = AzimuthEncoder();
 
 //ethernet data
-byte mac[] = {0xDE, 0XAD, 0xBE, 0xEF, 0xFE, 0xED};
+IPAddress IP(192, 168, 0, 32)
+byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
+IPAddress gateway(169, 254, 205, 1);
+IPAddress subnet(255, 255, 0, 0);
+//ethernet server
+EthernetServer server(TCPPORT);
+
+IPAdrress ControlRoomIP(192, 168, 0, 70)
 
 
 
