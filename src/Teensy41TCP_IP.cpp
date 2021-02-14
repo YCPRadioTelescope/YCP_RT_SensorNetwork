@@ -5,19 +5,7 @@
 #include <queue>
 
 #define TCPPORT 1602
-
-void SendEthernetMessage(const char *msg, size_t length, IPAddress destination){
-  EthernetClient sendClient;
-  if(sendClient.connect(destination, TCPPORT)){
-    Serial.println("connected");
-    sendClient.println(msg);
-    sendClient.println();
-  }
-  else{
-    Serial.println("connection failed");
-  }
-
-}
+#define DATA_TRANSMIT_ID 129;
 
 void SendDataToControlRoom(uint8_t *buff, size_t buffSize, IPAddress controlRoomAddress, uint16_t controlRoomPort) {
 
@@ -29,7 +17,7 @@ void SendDataToControlRoom(uint8_t *buff, size_t buffSize, IPAddress controlRoom
     sendClient.stop();
   }
   else{
-    Serial.println("TCP not connected")
+    Serial.println("TCP not connected");
   }
   
 }
