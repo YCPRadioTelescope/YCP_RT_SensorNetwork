@@ -7,19 +7,19 @@
 #define TCPPORT 1602
 #define DATA_TRANSMIT_ID 129;
 
-void SendDataToControlRoom(uint8_t *buff, size_t buffSize, IPAddress controlRoomAddress, uint16_t controlRoomPort) {
+void SendDataToControlRoom(uint8_t *buff, size_t buffSize, IPAddress controlRoomAddress, uint16_t controlRoomPort, EthernetClient sendClient) {
+    //Serial.println("Attempting to send data to the control room...");
 
-  EthernetClient sendClient;
-  if(sendClient.connect(controlRoomAddress, controlRoomPort)){
-    
-    sendClient.write(buff, buffSize);
-    sendClient.flush();
-    sendClient.stop();
-  }
-  else{
-    Serial.println("TCP not connected");
-  }
-  
+    if(sendClient.connect(controlRoomAddress, controlRoomPort)){
+        //sendClient.write(buff, buffSize);
+        sendClient.write("llllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll");
+        delay(100);
+        Serial.println("Successfully sent data to the control room!");
+    }
+    else{
+        Serial.println("Could not connect to the control room.");
+    }
+    sendClient.stop(); 
 }
 
 //retune number of 8 bit chars required to transmit the presented data

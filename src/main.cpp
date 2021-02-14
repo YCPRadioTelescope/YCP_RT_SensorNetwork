@@ -33,13 +33,13 @@ AzimuthEncoder azencoder = AzimuthEncoder();
 
 //ethernet data
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
-byte ip[] = { 192, 168, 0, 123 };
+byte ip[] = { 169, 254, 17, 197 }; // The IP will need reset for every different PC the Teensy is connected to
 IPAddress gateway(192, 168, 0, 1);
 IPAddress subnet(255, 255, 255, 0);
 
 
 
-IPAddress ControlRoomIP = IPAddress(192, 168, 0, 70);
+IPAddress ControlRoomIP = IPAddress(169,254,17,226);
 
 
 EthernetClient client;
@@ -205,14 +205,13 @@ void loop() {
   if(EthernetEventFlag){
 
     EthernetEventFlag = false;
-    Serial.println("sending data");
     uint32_t dataSize = calcTransitSize(adxlEl.buffer.size(), adxlAz.buffer.size(), adxlCb.buffer.size(), tempSensorEl1.buffer.size(), tempSensorAz2.buffer.size(),elencoder.buffer.size(),azencoder.buffer.size()); // determine the size of the array that needs to be alocated
     uint8_t *dataToSend;
     dataToSend = (uint8_t *)malloc(dataSize * sizeof(uint8_t)); //malloc needs to be used becaus stack size on the loop task is about 4k so this needs to go on the heap
     
     prepairTransit(dataToSend, dataSize, &adxlEl.buffer, &adxlAz.buffer, &adxlCb.buffer, &tempSensorEl1.buffer, &tempSensorAz1.buffer, &elencoder.buffer, &azencoder.buffer);
 
-    SendDataToControlRoom(dataToSend, dataSize, ControlRoomIP, TCPPORT);
+    SendDataToControlRoom(dataToSend, dataSize, ControlRoomIP, TCPPORT, client);
     
     free(dataToSend);
   }
