@@ -118,6 +118,14 @@ void setup() {
     Serial.println(Ethernet.localIP());
     Serial.print("ethernet server port:");
     Serial.println(TCPPORT);
+
+  // Connect to the control room TCP Client
+      if(client.connect(ControlRoomIP, TCPPORT)){
+        Serial.println("Connected to the control room's TCP server.");
+    }
+    else{
+        Serial.println("Could not connect to the control room.");
+    }
 }
 
 // This is the super loop where we will be keeping track of counters, setting eventflags and calling proccess base on if any event flags were set
