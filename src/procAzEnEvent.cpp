@@ -24,7 +24,7 @@ void AzimuthEncoder::init() {
 void AzimuthEncoder::procAzEnEvent() {
   //create and initilze variables and arrays
   byte buff[6] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-  unsigned long angleRaw = 0;               //using a long to be safe, max output data is 22 bits but we only have 11 bits of resolution
+  uint16_t angleRaw = 0;               //using a long to be safe, max output data is 22 bits but we only have 11 bits of resolution
   //float angleFinal = 0.0;
   bool dataGood = false;
   bool dataZero = false;

@@ -65,7 +65,7 @@ bool AccelCbEventFlag = true;         // init as true to empty
 // counters for each clock driven interrupt
 int ethernetcounter = 0;
 int tempcounter = 0;
-int elcodercounter =0;
+int elencodercounter =0;
 int azencoercounter =0;
 
 // Timer interrupt
@@ -138,7 +138,7 @@ void loop() {
 
     //increment each clock event counter by 1
     tempcounter++;
-    elcodercounter++;
+    elencodercounter++;
     azencoercounter++;
     ethernetcounter++;
 
@@ -149,8 +149,8 @@ void loop() {
     }
 
     //check if elevation encoder is ready to be read. Read every 20ms
-    if(elcodercounter >= 20){//TODO: switch to constant
-      elcodercounter = 0;
+    if(elencodercounter >= 20){//TODO: switch to constant
+      elencodercounter = 0;
       ElEncoderEventFlag = true;
     }
 
@@ -214,7 +214,7 @@ void loop() {
   if(EthernetEventFlag){
 
     EthernetEventFlag = false;
-    uint32_t dataSize = calcTransitSize(adxlEl.buffer.size(), adxlAz.buffer.size(), adxlCb.buffer.size(), tempSensorEl1.buffer.size(), tempSensorAz2.buffer.size(),elencoder.buffer.size(),azencoder.buffer.size()); // determine the size of the array that needs to be alocated
+    uint32_t dataSize = calcTransitSize(adxlEl.buffer.size(), adxlAz.buffer.size(), adxlCb.buffer.size(), tempSensorEl1.buffer.size(), tempSensorAz1.buffer.size(),elencoder.buffer.size(),azencoder.buffer.size()); // determine the size of the array that needs to be alocated
     uint8_t *dataToSend;
     dataToSend = (uint8_t *)malloc(dataSize * sizeof(uint8_t)); //malloc needs to be used becaus stack size on the loop task is about 4k so this needs to go on the heap
     
