@@ -5,33 +5,12 @@
 #include <queue>
 
 #define TCPPORT 1602
+#define DATA_TRANSMIT_ID 129;
 
-void SendEthernetMessage(const char *msg, size_t length, IPAddress destination){
-  EthernetClient sendClient;
-  if(sendClient.connect(destination, TCPPORT)){
-    Serial.println("connected");
-    sendClient.println(msg);
-    sendClient.println();
-  }
-  else{
-    Serial.println("connection failed");
-  }
-
-}
-
-void SendDataToControlRoom(uint8_t *buff, size_t buffSize, IPAddress controlRoomAddress, uint16_t controlRoomPort) {
-
-  EthernetClient sendClient;
-  if(sendClient.connect(controlRoomAddress, controlRoomPort)){
-    
-    sendClient.write(buff, buffSize);
-    sendClient.flush();
-    sendClient.stop();
-  }
-  else{
-    Serial.println("TCP not connected")
-  }
-  
+void SendDataToControlRoom(uint8_t *buff, size_t buffSize, IPAddress controlRoomAddress, uint16_t controlRoomPort, EthernetClient sendClient) {
+    //sendClient.write(buff, buffSize);
+    sendClient.write("testing");
+    delay(100);
 }
 
 //retune number of 8 bit chars required to transmit the presented data
