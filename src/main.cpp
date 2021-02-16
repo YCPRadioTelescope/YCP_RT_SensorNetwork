@@ -102,14 +102,14 @@ void setup() {
      Serial.println("Hardware found");
    }
   
-  //adxlEl.init();                               // initialize an ADXL345 to communicate using I2C
-  //adxlAz.init();                               // initialize an ADXL345 to communicate using I2C
-  //adxlCb.init();                               // initialize an ADXL345 to communicate using I2C
-  //azencoder.init();                          // initialize azimuth encoder to communicate using SPI
+  adxlEl.init();                               // initialize an ADXL345 to communicate using I2C
+  adxlAz.init();                               // initialize an ADXL345 to communicate using I2C
+  adxlCb.init();                               // initialize an ADXL345 to communicate using I2C
+  azencoder.init();                          // initialize azimuth encoder to communicate using SPI
   myTimer.begin(TimerEvent_ISR, TIMER_1MS);  // TimerEvent to run every millisecond
-  //attachInterrupt(digitalPinToInterrupt(AdxlElIntPin), ADXLEL_ISR, RISING);   // Attach ADXL345 Interrupt
-  //attachInterrupt(digitalPinToInterrupt(AdxlAzIntPin), ADXLAZ_ISR, RISING);   // Attach ADXL345 Interrupt
-  //attachInterrupt(digitalPinToInterrupt(AdxlCbIntPin), ADXLCB_ISR, RISING);   // Attach ADXL345 Interrupt
+  attachInterrupt(digitalPinToInterrupt(AdxlElIntPin), ADXLEL_ISR, RISING);   // Attach ADXL345 Interrupt
+  attachInterrupt(digitalPinToInterrupt(AdxlAzIntPin), ADXLAZ_ISR, RISING);   // Attach ADXL345 Interrupt
+  attachInterrupt(digitalPinToInterrupt(AdxlCbIntPin), ADXLCB_ISR, RISING);   // Attach ADXL345 Interrupt
   
 
 
@@ -121,7 +121,7 @@ void setup() {
     Serial.println(TCPPORT);
 
   // Connect to the control room TCP Client
-      if(client.connect(ControlRoomIP, TCPPORT)){
+    if(client.connect(ControlRoomIP, TCPPORT)){
         Serial.println("Connected to the control room's TCP server.");
     }
     else{
@@ -137,9 +137,9 @@ void loop() {
     TimerEventFlag = false; 
 
     //increment each clock event counter by 1
-    //tempcounter++;
-    //elcodercounter++;
-    //azencoercounter++;
+    tempcounter++;
+    elcodercounter++;
+    azencoercounter++;
     ethernetcounter++;
 
     //check if temp sensors are ready to be read. Read every 1s
@@ -192,9 +192,9 @@ void loop() {
   if(TempEventFlag){
     TempEventFlag = false;
     tempSensorEl1.getTemp();         // gets the temperature and prints it to the serial port. TODO: add return so data can be sent to the control room
-    tempSensorEl2.getTemp();
+    //tempSensorEl2.getTemp();
     tempSensorAz1.getTemp();
-    tempSensorAz2.getTemp();
+    //tempSensorAz2.getTemp();
   }
   
   if(ElEncoderEventFlag){

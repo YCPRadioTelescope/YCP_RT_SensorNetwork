@@ -4,13 +4,23 @@
 #include <NativeEthernet.h>
 #include <queue>
 
-#define TCPPORT 1602
+#define TCPPORT 1600
 #define DATA_TRANSMIT_ID 129;
 
+
 void SendDataToControlRoom(uint8_t *buff, size_t buffSize, IPAddress controlRoomAddress, uint16_t controlRoomPort, EthernetClient sendClient) {
-    //sendClient.write(buff, buffSize);
-    sendClient.write("testing");
-    delay(100);
+    //Check if the teensy client is available
+    if(sendClient.available() == false){
+        Serial.println("Reconnecting to the control room");
+        if(sendClient.connect(controlRoomAddress, TCPPORT)){
+            Serial.println("Connected to the control room's TCP server.");
+        }
+        else{
+            Serial.println("Could not connect to the control room.");
+        }
+    }
+    sendClient.write(buff, buffSize);
+    //sendClient.write("testing");
 }
 
 //retune number of 8 bit chars required to transmit the presented data
