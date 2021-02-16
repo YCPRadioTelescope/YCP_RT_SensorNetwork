@@ -34,13 +34,13 @@ AzimuthEncoder azencoder = AzimuthEncoder();
 
 //ethernet data
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
-byte ip[] = { 169, 254, 17, 197 }; // The IP will need reset for every different PC the Teensy is connected to
+byte ip[] = { 192, 168, 0, 197 }; // The IP will need reset for every different PC the Teensy is connected to
 IPAddress gateway(192, 168, 0, 1);
 IPAddress subnet(255, 255, 255, 0);
 
 
 
-IPAddress ControlRoomIP = IPAddress(169,254,17,226);
+IPAddress ControlRoomIP = IPAddress(192, 168, 0, 10);
 
 
 EthernetClient client;
