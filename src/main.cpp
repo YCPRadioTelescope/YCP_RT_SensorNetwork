@@ -161,7 +161,7 @@ void loop() {
       AZEncoderEventFlag = true;
     }
 
-    if(ethernetcounter >= 1000){
+    if(ethernetcounter >= 250){
       //Serial.println("Setting ethernet flag");
       ethernetcounter = 0;
       EthernetEventFlag = true;

@@ -82,9 +82,9 @@ void ADXL345::readAccel(int *x, int *y, int *z) {
 	readFromI2C(ADXL345_DATAX0, ADXL345_TO_READ, _buff);	// Read Accel Data from ADXL345
 
 	// Each Axis @ All g Ranges: 10 Bit Resolution (2 Bytes)
-	*x = (int16_t)((((int)_buff[1]) << 8) | _buff[0]);
-	*y = (int16_t)((((int)_buff[3]) << 8) | _buff[2]);
-	*z = (int16_t)((((int)_buff[5]) << 8) | _buff[4]);
+	*x = (short)((_buff[1] << 8) | _buff[0]);
+	*y = (short)((_buff[3] << 8) | _buff[2]);
+	*z = (short)((_buff[5] << 8) | _buff[4]);
 }
 
 //Set sample rate in Hz

@@ -10,8 +10,10 @@
 
 void SendDataToControlRoom(uint8_t *buff, size_t buffSize, IPAddress controlRoomAddress, uint16_t controlRoomPort, EthernetClient sendClient) {
     //Check if the teensy client is available
-    sendClient.write(buff, buffSize);
-    //sendClient.write("testing");
+    size_t dataSent = sendClient.write(buff, buffSize);
+    Serial.print("Number of packets sent:");
+    Serial.println(dataSent);
+    
 }
 
 //retune number of 8 bit chars required to transmit the presented data
@@ -51,44 +53,44 @@ void prepairTransit(uint8_t *reply, uint32_t dataSize, std::queue <acc> *Acc0Buf
     reply[4] = dataSize & 0x000000ff;
 
     uint32_t acc0BufSize = Acc0Buffer->size();
-    reply[5] = ((acc0BufSize * 6) & 0xff00) >> 8;
-    reply[6] = ((acc0BufSize * 6) & 0x00ff);
+    reply[5] = ((acc0BufSize) & 0xff00) >> 8;
+    reply[6] = ((acc0BufSize) & 0x00ff);
     //Serial.println("Adxl0 size = ");
     //Serial.println(acc0BufSize);
 
     uint32_t acc1BufSize = Acc1Buffer->size();
-    reply[7] = ((acc1BufSize * 6) & 0xff00) >> 8;
-    reply[8] = ((acc1BufSize * 6) & 0x00ff);
+    reply[7] = ((acc1BufSize) & 0xff00) >> 8;
+    reply[8] = ((acc1BufSize) & 0x00ff);
     //Serial.println("Adxl1 size = ");
     //Serial.println(acc1BufSize);
 
     uint32_t acc2BufSize = Acc2Buffer->size();
-    reply[9] = ((acc2BufSize * 6) & 0xff00) >> 8;
-    reply[10] = ((acc2BufSize * 6) & 0x00ff);
+    reply[9] = ((acc2BufSize) & 0xff00) >> 8;
+    reply[10] = ((acc2BufSize) & 0x00ff);
     //Serial.println("Adxl2 size = ");
     //Serial.println(acc2BufSize);
 
     uint32_t temp1BufSize = Temp1Buffer->size();
-    reply[11] = ((temp1BufSize * 2) & 0xff00) >> 8;
-    reply[12] = ((temp1BufSize * 2) & 0x00ff);
+    reply[11] = ((temp1BufSize) & 0xff00) >> 8;
+    reply[12] = ((temp1BufSize ) & 0x00ff);
     //Serial.println("Temp1Buffer size = ");
     //Serial.println(temp1BufSize);
 
     uint32_t temp2BufSize = Temp2Buffer->size();
-    reply[13] = ((temp2BufSize * 2) & 0xff00) >> 8;
-    reply[14] = ((temp2BufSize * 2) & 0x00ff);
+    reply[13] = ((temp2BufSize) & 0xff00) >> 8;
+    reply[14] = ((temp2BufSize) & 0x00ff);
     //Serial.println("Temp2Buffer size = ");
     //Serial.println(temp2BufSize);
 
     uint32_t elEnBufSize = ElEnBuffer->size();
-    reply[15] = ((elEnBufSize * 2) & 0xff00) >> 8;
-    reply[16] = ((elEnBufSize * 2) & 0x00ff);
+    reply[15] = ((elEnBufSize) & 0xff00) >> 8;
+    reply[16] = ((elEnBufSize) & 0x00ff);
     //Serial.println("elEnBuf size = ");
     //Serial.println(elEnBufSize);
 
     uint32_t azEnBufferSize = AzEnBuffer->size();
-    reply[17] = ((azEnBufferSize * 2) & 0xff00) >> 8;
-    reply[18] = ((azEnBufferSize * 2) & 0x00ff);
+    reply[17] = ((azEnBufferSize) & 0xff00) >> 8;
+    reply[18] = ((azEnBufferSize) & 0x00ff);
     //Serial.println("azEnBuf size = ");
     //Serial.println(azEnBufferSize);
 
@@ -129,30 +131,32 @@ void prepairTransit(uint8_t *reply, uint32_t dataSize, std::queue <acc> *Acc0Buf
     for (uint32_t j = 0; j < temp1BufSize; j++)
     {
         int16_t current = Temp1Buffer->front();
-        reply[i++] = (current & 0x00ff);
         reply[i++] = (current & 0xff00) >> 8;
+        reply[i++] = (current & 0x00ff);
         Temp1Buffer->pop();
     }
     for (uint32_t j = 0; j < temp2BufSize; j++)
     {
         int16_t current = Temp2Buffer->front();
-        reply[i++] = (current & 0x00ff);
         reply[i++] = (current & 0xff00) >> 8;
+        reply[i++] = (current & 0x00ff);
         Temp2Buffer->pop();
     }
     for (uint32_t j = 0; j < elEnBufSize; j++)
     {
         int16_t current = ElEnBuffer->front();
-        reply[i++] = (current & 0x00ff);
         reply[i++] = (current & 0xff00) >> 8;
+        reply[i++] = (current & 0x00ff);
         ElEnBuffer->pop();
     }
     for (uint32_t j = 0; j < azEnBufferSize; j++)
     {
         int16_t current = AzEnBuffer->front();
-        reply[i++] = (current & 0x00ff);
         reply[i++] = (current & 0xff00) >> 8;
+        reply[i++] = (current & 0x00ff);
         AzEnBuffer->pop();
     }
+    Serial.print("Index = ");
+    Serial.println(i);
     
 }
