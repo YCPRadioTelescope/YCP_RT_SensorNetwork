@@ -10,9 +10,8 @@
 
 void SendDataToControlRoom(uint8_t *buff, size_t buffSize, IPAddress controlRoomAddress, uint16_t controlRoomPort, EthernetClient sendClient) {
     //Check if the teensy client is available
-    size_t dataSent = sendClient.write(buff, buffSize);
-    Serial.print("Number of packets sent:");
-    Serial.println(dataSent);
+    sendClient.write(buff, buffSize);
+    //sendClient.write("testing");
     
 }
 
@@ -156,7 +155,5 @@ void prepairTransit(uint8_t *reply, uint32_t dataSize, std::queue <acc> *Acc0Buf
         reply[i++] = (current & 0x00ff);
         AzEnBuffer->pop();
     }
-    Serial.print("Index = ");
-    Serial.println(i);
     
 }
