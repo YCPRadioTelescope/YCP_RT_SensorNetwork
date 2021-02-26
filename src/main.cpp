@@ -19,6 +19,7 @@
 #define AdxlCbIntPin 11
 
 #define TCPPORT 1600
+#define CRPORT 1680   //Control Room Port
 // Create an IntervalTimer object 
 IntervalTimer myTimer;
 
@@ -45,12 +46,23 @@ IPAddress ControlRoomIP = IPAddress(192, 168, 0, 10);
 
 EthernetClient client;
 //ethernet server
-EthernetServer server(TCPPORT);
+EthernetServer server(CRPORT);
 
 int const TIMER_1MS = 1000;
 
 float Celsius = 0;
 float Fahrenheit = 0;
+
+// Event flags that are set by the Control Room used to Configure and Initialize
+bool InitEl1TempFlag;
+bool InitEl2TempFlag;
+bool InitAz1TempFlag;
+bool InitAz2TempFlag;
+bool InitElEncoderFlag;
+bool InitAzEncoderFlag;
+bool InitElAccelFlag;
+bool InitAzAccelFlag;
+bool InitCbAccelFlag;
 
 // Event flags that are check in the main loop to see what processes should be run
 bool EthernetEventFlag = false;
@@ -58,9 +70,9 @@ bool TimerEventFlag = false;
 bool TempEventFlag = false;
 bool ElEncoderEventFlag = false;
 bool AZEncoderEventFlag = false;
-bool AccelElEventFlag = true;         // init as true to empty 
-bool AccelAzEventFlag = true;         // init as true to empty 
-bool AccelCbEventFlag = true;         // init as true to empty 
+bool ElAccelEventFlag = true;         // init as true to empty 
+bool AzAccelEventFlag = true;         // init as true to empty 
+bool CbAccelEventFlag = true;         // init as true to empty 
 
 // counters for each clock driven interrupt
 int ethernetcounter = 0;
@@ -77,15 +89,15 @@ void TimerEvent_ISR(){
 /********************* ISR *********************/
 /* Look for ADXL Interrupts     */
 void ADXLEL_ISR() {
-  AccelElEventFlag = true;
+  ElAccelEventFlag = true;
   
 }
 void ADXLAZ_ISR() {
-  AccelAzEventFlag = true;
+  AzAccelEventFlag = true;
 
 }
 void ADXLCB_ISR() {
-  AccelCbEventFlag = true;
+  CbAccelEventFlag = true;
 
 }
 
@@ -95,38 +107,95 @@ void setup() {
   Serial.begin(9600);
 
   Ethernet.begin(mac, ip, gateway, gateway, subnet);
-   if (Ethernet.hardwareStatus() == EthernetNoHardware) {
+  if (Ethernet.hardwareStatus() == EthernetNoHardware) {
     Serial.println("Ethernet shield was not found.  Sorry, can't run without hardware. :(");
-   }
-   else{
-     Serial.println("Hardware found");
-   }
-  
-  adxlEl.init();                               // initialize an ADXL345 to communicate using I2C
-  adxlAz.init();                               // initialize an ADXL345 to communicate using I2C
-  adxlCb.init();                               // initialize an ADXL345 to communicate using I2C
-  azencoder.init();                          // initialize azimuth encoder to communicate using SPI
-  myTimer.begin(TimerEvent_ISR, TIMER_1MS);  // TimerEvent to run every millisecond
-  attachInterrupt(digitalPinToInterrupt(AdxlElIntPin), ADXLEL_ISR, RISING);   // Attach ADXL345 Interrupt
-  attachInterrupt(digitalPinToInterrupt(AdxlAzIntPin), ADXLAZ_ISR, RISING);   // Attach ADXL345 Interrupt
-  attachInterrupt(digitalPinToInterrupt(AdxlCbIntPin), ADXLCB_ISR, RISING);   // Attach ADXL345 Interrupt
-  
-
-
-  // start listening for clients
-    server.begin();
-    Serial.print("ethernet server address:");
-    Serial.println(Ethernet.localIP());
-    Serial.print("ethernet server port:");
-    Serial.println(TCPPORT);
+  }
+  else{
+    Serial.println("Hardware found");
+  }
 
   // Connect to the control room TCP Client
-    if(client.connect(ControlRoomIP, TCPPORT)){
-        Serial.println("Connected to the control room's TCP server.");
-    }
-    else{
-        Serial.println("Could not connect to the control room.");
-    }
+  if(client.connect(ControlRoomIP, TCPPORT)){
+      Serial.println("Connected to the control room's TCP server.");
+      client.write("Send Sensor Configuration");
+  }
+  else{
+      Serial.println("Could not connect to the control room.");
+  }
+
+  // start listening for clients
+  server.begin();
+  Serial.print("ethernet server address:");
+  Serial.println(Ethernet.localIP());
+  Serial.print("ethernet server port:");
+  Serial.println(CRPORT);
+  
+  // wait for a Control Room client:
+  Serial.println("Waiting for client");
+  EthernetClient controlRoomClient = server.available();
+  
+  //Wait till we recieve data from the Control Room
+  while(!controlRoomClient){
+    delay(1);
+    controlRoomClient = server.available();
+  }
+  Serial.println("Client found");
+
+  size_t bytes = controlRoomClient.available();
+  uint8_t *ptr;
+  uint8_t data[bytes] = {0};
+  ptr = data;
+  controlRoomClient.read(ptr, bytes);
+
+  InitEl1TempFlag = data[0] == 0 ? false : true;
+  InitEl2TempFlag = data[1] == 0 ? false : true;
+  InitAz1TempFlag = data[2] == 0 ? false : true;
+  InitAz2TempFlag = data[3] == 0 ? false : true;
+  InitElEncoderFlag = data[4] == 0 ? false : true;
+  InitAzEncoderFlag = data[5] == 0 ? false : true;
+  InitAzAccelFlag = data[6] == 0 ? false : true;
+  InitElAccelFlag = data[7] == 0 ? false : true;
+  InitCbAccelFlag = data[8] == 0 ? false : true;
+
+  for (int j = 0; j < bytes; j++)
+  {
+    Serial.print(data[j]);
+    Serial.print("  ");
+  }
+  Serial.println();
+
+  controlRoomClient.write("acknoledge");
+  // give time to receive the data
+  delay(2);
+  // close the connection:
+  controlRoomClient.stop();
+  
+  if(InitElAccelFlag){
+    adxlEl.init();                               // initialize an ADXL345 to communicate using I2C
+    attachInterrupt(digitalPinToInterrupt(AdxlElIntPin), ADXLEL_ISR, RISING);   // Attach ADXL345 Interrupt
+    Serial.println("El Adxl Initialized");
+  }
+
+  if(InitAzAccelFlag){
+    adxlAz.init();                               // initialize an ADXL345 to communicate using I2C
+    attachInterrupt(digitalPinToInterrupt(AdxlAzIntPin), ADXLAZ_ISR, RISING);   // Attach ADXL345 Interrupt
+    Serial.println("Az Adxl Initialized");
+  }
+
+  if(InitCbAccelFlag){
+    adxlCb.init();                               // initialize an ADXL345 to communicate using I2C
+    attachInterrupt(digitalPinToInterrupt(AdxlCbIntPin), ADXLCB_ISR, RISING);   // Attach ADXL345 Interrupt
+    Serial.println("Cb Adxl Initialized");
+  }
+
+  if(InitAzEncoderFlag){
+    azencoder.init();                          // initialize azimuth encoder to communicate using SPI
+    Serial.println("Az Encoder Initialized");
+  }
+
+  myTimer.begin(TimerEvent_ISR, TIMER_1MS);  // TimerEvent to run every millisecond
+  
+
 }
 
 // This is the super loop where we will be keeping track of counters, setting eventflags and calling proccess base on if any event flags were set
@@ -138,8 +207,16 @@ void loop() {
 
     //increment each clock event counter by 1
     tempcounter++;
-    elencodercounter++;
-    azencoercounter++;
+
+    if(InitElEncoderFlag){
+
+      elencodercounter++;
+    }
+    if(InitAzEncoderFlag){
+
+      azencoercounter++;
+    }
+
     ethernetcounter++;
 
     //check if temp sensors are ready to be read. Read every 1s
@@ -170,31 +247,48 @@ void loop() {
 
   }
 
-  if(AccelElEventFlag){
+  if(ElAccelEventFlag){
     
-    AccelElEventFlag = false;
+    ElAccelEventFlag = false;
 
-    adxlEl.emptyFifo();      // gets the x y and z cordnates and prints them to the serial port. TODO: add return so data can be sent to the control room
+    adxlEl.emptyFifo();      // gets the x y and z cordnates and prints them to the serial port.
   }
   
-  if(AccelAzEventFlag){
+  if(AzAccelEventFlag){
     
-    AccelAzEventFlag = false;
-    adxlAz.emptyFifo();      // gets the x y and z cordnates and prints them to the serial port. TODO: add return so data can be sent to the control room
+    AzAccelEventFlag = false;
+    adxlAz.emptyFifo();      // gets the x y and z cordnates and prints them to the serial port.
   }
 
-  if(AccelCbEventFlag){
+  if(CbAccelEventFlag){
     
-    AccelCbEventFlag = false;
-    adxlCb.emptyFifo();      // gets the x y and z cordnates and prints them to the serial port. TODO: add return so data can be sent to the control room
+    CbAccelEventFlag = false;
+    adxlCb.emptyFifo();      // gets the x y and z cordnates and prints them to the serial port.
   }
 
   if(TempEventFlag){
     TempEventFlag = false;
-    tempSensorEl1.getTemp();         // gets the temperature and prints it to the serial port. TODO: add return so data can be sent to the control room
-    //tempSensorEl2.getTemp();
-    tempSensorAz1.getTemp();
-    //tempSensorAz2.getTemp();
+
+    if(InitEl1TempFlag){
+
+    tempSensorEl1.getTemp();         // gets the temperature and prints it to the serial port. 
+    }
+
+    if(InitEl2TempFlag){
+
+    tempSensorEl2.getTemp();         // gets the temperature and prints it to the serial port. 
+    }
+
+    if(InitAz1TempFlag){
+
+    tempSensorAz1.getTemp();         // gets the temperature and prints it to the serial port. 
+    }
+
+    if(InitAz2TempFlag){
+
+    tempSensorAz2.getTemp();         // gets the temperature and prints it to the serial port. 
+    }
+
   }
   
   if(ElEncoderEventFlag){
@@ -223,6 +317,7 @@ void loop() {
     SendDataToControlRoom(dataToSend, dataSize, ControlRoomIP, TCPPORT, client);
     
     free(dataToSend);
+
   }
 
 }
