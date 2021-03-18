@@ -112,6 +112,8 @@ public:
     void init();
     void emptyFifo();
 
+	void powerCycle(uint8_t pinNumber);
+
 	void powerOn();
 
 	void readAccel(int* x, int* y, int* z);

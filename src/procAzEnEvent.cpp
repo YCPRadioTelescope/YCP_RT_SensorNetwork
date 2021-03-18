@@ -74,13 +74,13 @@ void AzimuthEncoder::procAzEnEvent() {
   //check zero flag
   dataZero = buff[1]  & 0x01;
   if (dataZero == false) {
-      //Serial.println("NOT AT FACTORY ZERO");
+      Serial.println("NOT AT FACTORY ZERO");
   }
 
   //check valid flag
   dataValid = buff[2] >> 7;
   if (dataValid == false) {
-      //Serial.println("BAD DATA, NOT VALID");
+      Serial.println("BAD DATA, NOT VALID");
   }
 
   //check sync flag
@@ -92,7 +92,7 @@ void AzimuthEncoder::procAzEnEvent() {
 
   dataStale = buff[5] >> 7;
   if (dataStale == true) {
-      //Serial.println("STALE DATA");
+      Serial.println("STALE DATA");
   }
   
   //data is good
@@ -101,7 +101,13 @@ void AzimuthEncoder::procAzEnEvent() {
   buff[2] = buff[2] & 0x3F;
   angleRaw = (buff[2] << 16) + (buff[3] << 8) + buff[4];
 
-  buffer.push(angleRaw);
+  if(dataValid == true){
+      // Serial.print("Raw angle: ");
+      // Serial.println(angleRaw);
+      buffer.push(angleRaw);
+
+  }
+  
   //print raw angle for debugging
   //Serial.print("Raw angle: ");
   //Serial.println(angleRaw);

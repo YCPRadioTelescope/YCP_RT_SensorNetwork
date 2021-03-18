@@ -11,7 +11,6 @@
 void SendDataToControlRoom(uint8_t *buff, size_t buffSize, IPAddress controlRoomAddress, uint16_t controlRoomPort, EthernetClient sendClient) {
     //Check if the teensy client is available
     sendClient.write(buff, buffSize);
-    //sendClient.write("testing");
     
 }
 

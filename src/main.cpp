@@ -10,18 +10,22 @@
 #include <queue>
 #include <NativeEthernet.h>
 
-#define TempEl1Pin 2
-#define TempEl2Pin 3
-#define TempAz1Pin 4
-#define TempAz2Pin 5
-#define AdxlElIntPin 9
-#define AdxlAzIntPin 10
-#define AdxlCbIntPin 11
+#define TempEl1Pin 0
+#define TempEl2Pin 1
+#define TempAz1Pin 2
+#define TempAz2Pin 3
+#define AdxlElIntPin 7
+#define AdxlAzIntPin 8
+#define AdxlCbIntPin 9
+#define AdxlElPowerPin 32
+#define AdxlAzPowerPin 4
+#define AdxlCbPowerPin 5
 
 #define TCPPORT 1600
 #define CRPORT 1680   //Control Room Port
 // Create an IntervalTimer object 
 IntervalTimer myTimer;
+IntervalTimer myTimeout;
 
 TemperatureSensor tempSensorEl1(TempEl1Pin);
 TemperatureSensor tempSensorEl2(TempEl2Pin);
@@ -48,6 +52,7 @@ EthernetClient client;
 //ethernet server
 EthernetServer server(CRPORT);
 
+int const ADXL345_TimeOut_1S = 1000000; 
 int const TIMER_1MS = 1000;
 
 float Celsius = 0;
@@ -70,9 +75,9 @@ bool TimerEventFlag = false;
 bool TempEventFlag = false;
 bool ElEncoderEventFlag = false;
 bool AZEncoderEventFlag = false;
-bool ElAccelEventFlag = true;         // init as true to empty 
-bool AzAccelEventFlag = true;         // init as true to empty 
-bool CbAccelEventFlag = true;         // init as true to empty 
+bool ElAccelEventFlag = false;
+bool AzAccelEventFlag = false;
+bool CbAccelEventFlag = false;
 
 // counters for each clock driven interrupt
 int ethernetcounter = 0;
@@ -84,6 +89,10 @@ int azencoercounter =0;
 void TimerEvent_ISR(){
   TimerEventFlag = true;
   
+}
+// Time out interrupt
+void TimeOutEvent_ISR(){
+  Serial.println("Time out hit");
 }
 
 /********************* ISR *********************/
@@ -114,13 +123,16 @@ void setup() {
     Serial.println("Hardware found");
   }
 
-  // Connect to the control room TCP Client
-  if(client.connect(ControlRoomIP, TCPPORT)){
-      Serial.println("Connected to the control room's TCP server.");
-      client.write("Send Sensor Configuration");
-  }
-  else{
-      Serial.println("Could not connect to the control room.");
+  // Keep trying to connect to the control room until a connection is successfully made
+  while(!client.connected()) {
+    // Connect to the control room TCP Client
+    if(client.connect(ControlRoomIP, TCPPORT)){
+        Serial.println("Connected to the control room's TCP server.");
+        client.write("Send Sensor Configuration");
+    }
+    else{
+        Serial.println("Could not connect to the control room.");
+    }
   }
 
   // start listening for clients
@@ -169,23 +181,44 @@ void setup() {
   delay(2);
   // close the connection:
   controlRoomClient.stop();
-  
+
+  pinMode(AdxlElPowerPin, OUTPUT);
   if(InitElAccelFlag){
+    digitalWrite(AdxlElPowerPin, HIGH);
+    delay(10);
     adxlEl.init();                               // initialize an ADXL345 to communicate using I2C
     attachInterrupt(digitalPinToInterrupt(AdxlElIntPin), ADXLEL_ISR, RISING);   // Attach ADXL345 Interrupt
+    ElAccelEventFlag = true;         // init as true to empty 
     Serial.println("El Adxl Initialized");
   }
-
-  if(InitAzAccelFlag){
-    adxlAz.init();                               // initialize an ADXL345 to communicate using I2C
-    attachInterrupt(digitalPinToInterrupt(AdxlAzIntPin), ADXLAZ_ISR, RISING);   // Attach ADXL345 Interrupt
-    Serial.println("Az Adxl Initialized");
+  else{
+    digitalWrite(AdxlElPowerPin, LOW);
   }
 
+  pinMode(AdxlAzPowerPin, OUTPUT);
+  if(InitAzAccelFlag){
+    digitalWrite(AdxlAzPowerPin, HIGH);
+    delay(10);
+    adxlAz.init();                               // initialize an ADXL345 to communicate using I2C
+    attachInterrupt(digitalPinToInterrupt(AdxlAzIntPin), ADXLAZ_ISR, RISING);   // Attach ADXL345 Interrupt
+    AzAccelEventFlag = true;         // init as true to empty 
+    Serial.println("Az Adxl Initialized");
+  }
+  else{
+    digitalWrite(AdxlAzPowerPin, LOW);
+  }
+
+  pinMode(AdxlCbPowerPin, OUTPUT);
   if(InitCbAccelFlag){
+    digitalWrite(AdxlCbPowerPin, HIGH);
+    delay(10);
     adxlCb.init();                               // initialize an ADXL345 to communicate using I2C
     attachInterrupt(digitalPinToInterrupt(AdxlCbIntPin), ADXLCB_ISR, RISING);   // Attach ADXL345 Interrupt
+    CbAccelEventFlag = true;         // init as true to empty 
     Serial.println("Cb Adxl Initialized");
+  }
+  else{
+    digitalWrite(AdxlCbPowerPin, LOW);
   }
 
   if(InitAzEncoderFlag){
@@ -200,7 +233,6 @@ void setup() {
 
 // This is the super loop where we will be keeping track of counters, setting eventflags and calling proccess base on if any event flags were set
 void loop() {
-
   if(TimerEventFlag){
 
     TimerEventFlag = false; 
@@ -250,8 +282,9 @@ void loop() {
   if(ElAccelEventFlag){
     
     ElAccelEventFlag = false;
-
+    myTimeout.begin(TimeOutEvent_ISR, ADXL345_TimeOut_1S);
     adxlEl.emptyFifo();      // gets the x y and z cordnates and prints them to the serial port.
+    myTimeout.end();
   }
   
   if(AzAccelEventFlag){
@@ -317,7 +350,8 @@ void loop() {
     SendDataToControlRoom(dataToSend, dataSize, ControlRoomIP, TCPPORT, client);
     
     free(dataToSend);
-
+    // We need this but I'm not sure why it's hanging here :(
+    //client.flush();
   }
 
 }

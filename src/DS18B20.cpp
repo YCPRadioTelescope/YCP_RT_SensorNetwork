@@ -12,6 +12,7 @@ int TemperatureSensor::getTemp(){
     byte data[12];
     //float celsius, fahrenheit;
     
+  
     if ( !this->sensor.search(this->addr)) {
     //Serial.println("No more addresses.");
     //Serial.println();
@@ -19,22 +20,27 @@ int TemperatureSensor::getTemp(){
     delay(250);
     return 0;
   }
-
+  
+ 
   if (OneWire::crc8(this->addr, 7) != this->addr[7]) {
-      //Serial.println("CRC is not valid!");
+      Serial.println("CRC is not valid!");
       return 0;
   }
+  
 
   this->sensor.reset();
   this->sensor.select(this->addr);
   this->sensor.write(0x44, 1);        // start conversion, with parasite power on at the end
-  
+   
   //delay(1000);     // maybe 750ms is enough, maybe not
   // we might do a ds.depower() here, but the reset will take care of it.
-  
+
+
+
   this->sensor.reset();
   this->sensor.select(this->addr);    
   this->sensor.write(0xBE);         // Read Scratchpad
+ 
 
   for ( i = 0; i < 9; i++) {           // we need 9 bytes
     data[i] = this->sensor.read();

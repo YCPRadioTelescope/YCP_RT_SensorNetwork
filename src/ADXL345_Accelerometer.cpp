@@ -10,6 +10,7 @@ extern "C"{		// this is a fix for undefined references in the linker due to queu
 
 #define ADXL345_DEVICE (0x53)    // Device Address for ADXL345
 #define ADXL345_TO_READ (6)      // Number of Bytes Read - Two Bytes Per Axis
+#define ADXL345_Sample_Num (32)  // Max number of samples ADXL holds
 
 /*********** COMMUNICATION SELECTION ***********/
 /*    Comment Out The One You Are Not Using    */
@@ -32,12 +33,12 @@ ADXL345::ADXL345(TwoWire& wire) : accelwire(wire){
 /*          Configure ADXL345 Settings         */
 void ADXL345::init(){
 
-   powerOn();                     // Power on the ADXL345
+  powerOn();                     // Power on the ADXL345
   
   setInterruptMapping(ADXL345_INT_WATERMARK_BIT, ADXL345_INT1_PIN);    // Map Watermark interrupt to int pin 1
   setInterrupt(ADXL345_INT_WATERMARK_BIT, 1);                          // Enable Watermark interrupt 
   
-  writeToI2C(ADXL345_FIFO_CTL,0b10111111);								// (10|stream mode) (1|triger to INT1) (11111|trigger at 32 samples)
+  writeToI2C(ADXL345_FIFO_CTL,0b01111111);								// (10|FIFO mode) (1|triger to INT1) (11111|trigger at 32 samples)
   setRate(100);     // set sampe rate to 800 Hz
   
 }
@@ -46,12 +47,23 @@ void ADXL345::init(){
 /****************** MAIN CODE ******************/
 /* Accelerometer Readings */
 void ADXL345::emptyFifo(){
-  
+  //unsigned long start = 0; // the time the delay started
+  //start = millis();
   int x,y,z;   
-  //Serial.println("Starting Fifo buffer read");
-  for(int i =0; i<32; i++){                    // loop through fifo buffer and empty it
+  //Serial.println("starting");
+  // loop through fifo buffer and empty it
+  for(int i =0; i < 32; i++){  
+	   
+    accelwire.beginTransmission(ADXL345_DEVICE);
+    accelwire.write(ADXL345_DATAX0);
+    accelwire.endTransmission(false);
+    accelwire.requestFrom(ADXL345_DEVICE, ADXL345_TO_READ, true);  // Request 6 Bytes TODO:192
 
-    readAccel(&x, &y, &z);                 // reads acceleration
+	// Each Axis @ All g Ranges: 10 Bit Resolution (2 Bytes)
+	x = (short)((accelwire.read() | accelwire.read() << 8));
+	y = (short)((accelwire.read() | accelwire.read() << 8));
+	z = (short)((accelwire.read() | accelwire.read() << 8));
+
 	buffer.push({x,y,z});
     //delayMicroseconds(5);                       // minimum time between last read and start of the next read is 5 us
      //Serial.print(x);
@@ -60,12 +72,19 @@ void ADXL345::emptyFifo(){
      //Serial.print(", ");
      //Serial.println(z); 
   }
+  //Serial.print("Finished in ");
+  //Serial.println(millis() - start);
   //Serial.println(accelwire.);
   //Serial.println("Fifo buffer emptied");
 
 }
 
-
+void ADXL345::powerCycle(uint8_t pinNumber) {
+	digitalWrite(pinNumber, LOW);
+    delay(10);
+	digitalWrite(pinNumber, HIGH);
+	delay(10);
+}
 
 void ADXL345::powerOn() {
 	if(I2C) {
@@ -79,7 +98,7 @@ void ADXL345::powerOn() {
 }
 
 void ADXL345::readAccel(int *x, int *y, int *z) {
-	readFromI2C(ADXL345_DATAX0, ADXL345_TO_READ, _buff);	// Read Accel Data from ADXL345
+	readFromI2C(ADXL345_DATAX0, ADXL345_TO_READ * ADXL345_Sample_Num, _buff);	// Read Accel Data from ADXL345
 
 	// Each Axis @ All g Ranges: 10 Bit Resolution (2 Bytes)
 	*x = (short)((_buff[1] << 8) | _buff[0]);
@@ -131,9 +150,7 @@ void ADXL345::readFromI2C(byte address, int num, byte _buff[]) {
 	accelwire.beginTransmission(ADXL345_DEVICE);
 	accelwire.write(address);
 	accelwire.endTransmission();
- 
 	accelwire.requestFrom(ADXL345_DEVICE, num);  // Request 6 Bytes TODO:192
-
 	int i = 0;
 	while(accelwire.available())
 	{
