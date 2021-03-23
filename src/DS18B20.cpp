@@ -11,7 +11,8 @@ bool TemperatureSensor::getTemp(){
     byte i;
     byte data[12];
     //float celsius, fahrenheit;
-    
+    unsigned long start = 0; // the time the delay started
+    start = millis();
   
     if ( !this->sensor.search(this->addr)) {
     Serial.println("No more addresses.");
@@ -32,7 +33,7 @@ bool TemperatureSensor::getTemp(){
   this->sensor.select(this->addr);
   this->sensor.write(0x44, 1);        // start conversion, with parasite power on at the end
    
-  delay(1000);     // maybe 750ms is enough, maybe not
+  //delay(1000);     // maybe 750ms is enough, maybe not
   // we might do a ds.depower() here, but the reset will take care of it.
 
 
@@ -74,6 +75,9 @@ bool TemperatureSensor::getTemp(){
   //Serial.println(" Fahrenheit");
   //Serial.println(raw);
   buffer.push(raw);
+  Serial.print("Finished in ");
+  Serial.println(millis() - start);
   this->sensor.reset_search();
+  
   return true;
 }
