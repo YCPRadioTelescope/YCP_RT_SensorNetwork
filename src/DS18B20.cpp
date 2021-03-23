@@ -7,24 +7,24 @@ TemperatureSensor::TemperatureSensor(uint8_t line){
     this->sensor = OneWire(line);
 }
 
-int TemperatureSensor::getTemp(){
+bool TemperatureSensor::getTemp(){
     byte i;
     byte data[12];
     //float celsius, fahrenheit;
     
   
     if ( !this->sensor.search(this->addr)) {
-    //Serial.println("No more addresses.");
-    //Serial.println();
+    Serial.println("No more addresses.");
+    Serial.println();
     this->sensor.reset_search();
     delay(250);
-    return 0;
+    return false;
   }
   
  
   if (OneWire::crc8(this->addr, 7) != this->addr[7]) {
       Serial.println("CRC is not valid!");
-      return 0;
+      return false;
   }
   
 
@@ -32,7 +32,7 @@ int TemperatureSensor::getTemp(){
   this->sensor.select(this->addr);
   this->sensor.write(0x44, 1);        // start conversion, with parasite power on at the end
    
-  //delay(1000);     // maybe 750ms is enough, maybe not
+  delay(1000);     // maybe 750ms is enough, maybe not
   // we might do a ds.depower() here, but the reset will take care of it.
 
 
@@ -74,5 +74,6 @@ int TemperatureSensor::getTemp(){
   //Serial.println(" Fahrenheit");
   //Serial.println(raw);
   buffer.push(raw);
-  return 1;
+  this->sensor.reset_search();
+  return true;
 }

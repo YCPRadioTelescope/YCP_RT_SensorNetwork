@@ -6,6 +6,7 @@
 #include "ADXL345_Accelerometer.hpp"
 #include "procElEnEvent.h"
 #include "procAzEnEvent.h"
+#include "WatchDog.hpp"
 #include <NativeEthernet.h>
 #include <queue>
 #include <NativeEthernet.h>
@@ -26,6 +27,8 @@
 // Create an IntervalTimer object 
 IntervalTimer myTimer;
 IntervalTimer myTimeout;
+
+WatchDog wdog1;
 
 TemperatureSensor tempSensorEl1(TempEl1Pin);
 TemperatureSensor tempSensorEl2(TempEl2Pin);
@@ -52,6 +55,9 @@ EthernetClient client;
 //ethernet server
 EthernetServer server(CRPORT);
 
+std::queue <int16_t> emptyBuff;
+std::queue <acc> emptyAccBuff;
+
 int const ADXL345_TimeOut_1S = 1000000; 
 int const TIMER_1MS = 1000;
 
@@ -69,25 +75,39 @@ bool InitElAccelFlag;
 bool InitAzAccelFlag;
 bool InitCbAccelFlag;
 
+// Error flags that are used to tell which temp sensor to use
+bool EL1Errored = false;
+bool EL2Errored = false;
+bool Az1Errored = false;
+bool Az2Errored = false;
+
 // Event flags that are check in the main loop to see what processes should be run
-bool EthernetEventFlag = false;
-bool TimerEventFlag = false;
-bool TempEventFlag = false;
-bool ElEncoderEventFlag = false;
-bool AZEncoderEventFlag = false;
 bool ElAccelEventFlag = false;
 bool AzAccelEventFlag = false;
 bool CbAccelEventFlag = false;
 
 // counters for each clock driven interrupt
 int ethernetcounter = 0;
-int tempcounter = 0;
-int elencodercounter =0;
-int azencoercounter =0;
+int eltempcounter = 0;
+int aztempcounter = 500;    //add offset so temps are not samples at the same time
+int encodercounter =0;
 
 // Timer interrupt
 void TimerEvent_ISR(){
-  TimerEventFlag = true;
+  //increment each clock event counter by 1
+  if(InitEl1TempFlag || InitEl2TempFlag){
+    eltempcounter++;
+  }
+  if(InitAz1TempFlag || InitAz2TempFlag){
+    aztempcounter++;
+  }
+  //Serial.println("TimerISR hit");
+  if(InitElEncoderFlag || InitAzEncoderFlag){
+
+    encodercounter++;
+  }
+
+  ethernetcounter++;
   
 }
 // Time out interrupt
@@ -111,9 +131,6 @@ void ADXLCB_ISR() {
 }
 
 void setup() {
-
-  
-  Serial.begin(9600);
 
   Ethernet.begin(mac, ip, gateway, gateway, subnet);
   if (Ethernet.hardwareStatus() == EthernetNoHardware) {
@@ -169,7 +186,7 @@ void setup() {
   InitElAccelFlag = data[7] == 0 ? false : true;
   InitCbAccelFlag = data[8] == 0 ? false : true;
 
-  for (int j = 0; j < bytes; j++)
+  for (uint8_t j = 0; j < bytes; j++)
   {
     Serial.print(data[j]);
     Serial.print("  ");
@@ -228,55 +245,74 @@ void setup() {
 
   myTimer.begin(TimerEvent_ISR, TIMER_1MS);  // TimerEvent to run every millisecond
   
-
+  Serial.printf("POR reset ... init for ~1,5s watchdog timeout\n");
+  wdog1.init();   // ~1.5s watchdog timeout
 }
 
 // This is the super loop where we will be keeping track of counters, setting eventflags and calling proccess base on if any event flags were set
 void loop() {
-  if(TimerEventFlag){
+  
+  //check if temp sensors are ready to be read. Read every 1s
+  if(eltempcounter >= 1000){
+    eltempcounter = 0;
 
-    TimerEventFlag = false; 
+    if(InitEl1TempFlag && !EL1Errored){
 
-    //increment each clock event counter by 1
-    tempcounter++;
+      // gets the Elvation motor temperature and checks if sensor is good
+      if(!tempSensorEl1.getTemp()){
+        EL1Errored = true;
+        Serial.println("El Temp Senor 1 Stoped Working");
+      }
 
+    }
+
+    // if first temp sensor fails then use the second temp sesnor
+    if(InitEl2TempFlag && EL1Errored && !EL2Errored){
+
+      if(!tempSensorEl2.getTemp()){ 
+        EL2Errored = true;
+        Serial.println("El Temp Senor 2 Stoped Working");
+      }        
+    }
+  }
+  if(aztempcounter >= 1500){
+    aztempcounter = 500;    //add offset so temps are not samples at the same time
+
+    if(!Az1Errored && InitAz1TempFlag){
+       // gets the Azmuth motor temperature
+      if(!tempSensorAz1.getTemp()){
+        Az1Errored = true;
+        Serial.println("Az Temp Senor 1 Stoped Working");
+      }       
+    }
+    if(Az1Errored && InitAz2TempFlag && !Az2Errored){
+      if(!tempSensorAz2.getTemp()){
+        Az2Errored = true;
+        Serial.println("Az Temp Senor 2 Stoped Working");
+      }           
+    }
+
+  }
+  //check if elevation encoder is ready to be read. Read every 20ms
+  if(encodercounter >= 20){//TODO: switch to constant
+    encodercounter = 0;
+    
     if(InitElEncoderFlag){
-
-      elencodercounter++;
+      elencoder.procElEnEvent();
     }
     if(InitAzEncoderFlag){
-
-      azencoercounter++;
+      azencoder.procAzEnEvent();         
     }
+    //Send only the encoder information to the Control Room
+    uint32_t dataSize = calcTransitSize(0, 0, 0, 0, 0, elencoder.buffer.size(), azencoder.buffer.size()); // determine the size of the array that needs to be alocated
+    uint8_t *dataToSend;
+    dataToSend = (uint8_t *)malloc(dataSize * sizeof(uint8_t)); //malloc needs to be used becaus stack size on the loop task is about 4k so this needs to go on the heap
+    
+    prepairTransit(dataToSend, dataSize, &emptyAccBuff, &emptyAccBuff, &emptyAccBuff, &emptyBuff, &emptyBuff, &elencoder.buffer, &azencoder.buffer);
 
-    ethernetcounter++;
-
-    //check if temp sensors are ready to be read. Read every 1s
-    if(tempcounter >= 1000){
-      tempcounter = 0;
-      TempEventFlag = true;
-    }
-
-    //check if elevation encoder is ready to be read. Read every 20ms
-    if(elencodercounter >= 20){//TODO: switch to constant
-      elencodercounter = 0;
-      ElEncoderEventFlag = true;
-    }
-
-    //check if azimuth encoder is ready to be read. Read every 20ms
-    if(azencoercounter >= 20){
-      
-      azencoercounter = 0;
-      AZEncoderEventFlag = true;
-    }
-
-    if(ethernetcounter >= 250){
-      //Serial.println("Setting ethernet flag");
-      ethernetcounter = 0;
-      EthernetEventFlag = true;
-      
-    }
-
+    SendDataToControlRoom(dataToSend, dataSize, ControlRoomIP, TCPPORT, client);
+    
+    free(dataToSend);
   }
 
   if(ElAccelEventFlag){
@@ -299,57 +335,20 @@ void loop() {
     adxlCb.emptyFifo();      // gets the x y and z cordnates and prints them to the serial port.
   }
 
-  if(TempEventFlag){
-    TempEventFlag = false;
+  // Send all sensor data except encoder
+  if(ethernetcounter >= 250){
+    ethernetcounter = 0;
 
-    if(InitEl1TempFlag){
-
-    tempSensorEl1.getTemp();         // gets the temperature and prints it to the serial port. 
-    }
-
-    if(InitEl2TempFlag){
-
-    tempSensorEl2.getTemp();         // gets the temperature and prints it to the serial port. 
-    }
-
-    if(InitAz1TempFlag){
-
-    tempSensorAz1.getTemp();         // gets the temperature and prints it to the serial port. 
-    }
-
-    if(InitAz2TempFlag){
-
-    tempSensorAz2.getTemp();         // gets the temperature and prints it to the serial port. 
-    }
-
-  }
-  
-  if(ElEncoderEventFlag){
-    
-    ElEncoderEventFlag = false;
-    elencoder.procElEnEvent();         
-    
-  }
-
-  if(AZEncoderEventFlag){
-    
-    AZEncoderEventFlag = false;
-    azencoder.procAzEnEvent();         
-
-  }
-
-  if(EthernetEventFlag){
-
-    EthernetEventFlag = false;
-    uint32_t dataSize = calcTransitSize(adxlEl.buffer.size(), adxlAz.buffer.size(), adxlCb.buffer.size(), tempSensorEl1.buffer.size(), tempSensorAz1.buffer.size(),elencoder.buffer.size(),azencoder.buffer.size()); // determine the size of the array that needs to be alocated
+    uint32_t dataSize = calcTransitSize(adxlEl.buffer.size(), adxlAz.buffer.size(), adxlCb.buffer.size(), tempSensorEl1.buffer.size(), tempSensorAz1.buffer.size(),0,0); // determine the size of the array that needs to be alocated
     uint8_t *dataToSend;
     dataToSend = (uint8_t *)malloc(dataSize * sizeof(uint8_t)); //malloc needs to be used becaus stack size on the loop task is about 4k so this needs to go on the heap
     
-    prepairTransit(dataToSend, dataSize, &adxlEl.buffer, &adxlAz.buffer, &adxlCb.buffer, &tempSensorEl1.buffer, &tempSensorAz1.buffer, &elencoder.buffer, &azencoder.buffer);
+    prepairTransit(dataToSend, dataSize, &adxlEl.buffer, &adxlAz.buffer, &adxlCb.buffer, &tempSensorEl1.buffer, &tempSensorAz1.buffer, &emptyBuff, &emptyBuff);
 
     SendDataToControlRoom(dataToSend, dataSize, ControlRoomIP, TCPPORT, client);
     
     free(dataToSend);
+    wdog1.feed(); //reset watchdog
     // We need this but I'm not sure why it's hanging here :(
     //client.flush();
   }

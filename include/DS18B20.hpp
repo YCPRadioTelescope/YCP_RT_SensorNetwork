@@ -9,5 +9,5 @@ class TemperatureSensor{
         byte type_s;
         std::queue <int16_t> buffer;
         TemperatureSensor(uint8_t);
-        int getTemp();
+        bool getTemp();
 };

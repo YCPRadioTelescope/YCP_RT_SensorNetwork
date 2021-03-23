@@ -50,7 +50,7 @@ void ADXL345::emptyFifo(){
   //unsigned long start = 0; // the time the delay started
   //start = millis();
   int x,y,z;   
-  //Serial.println("starting");
+  //Serial.println("starting fifo empty");
   // loop through fifo buffer and empty it
   for(int i =0; i < 32; i++){  
 	   
