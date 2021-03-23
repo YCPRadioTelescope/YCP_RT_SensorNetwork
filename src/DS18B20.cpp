@@ -11,8 +11,6 @@ bool TemperatureSensor::getTemp(){
     byte i;
     byte data[12];
     //float celsius, fahrenheit;
-    unsigned long start = 0; // the time the delay started
-    start = millis();
   
     if ( !this->sensor.search(this->addr)) {
     Serial.println("No more addresses.");
@@ -75,8 +73,6 @@ bool TemperatureSensor::getTemp(){
   //Serial.println(" Fahrenheit");
   //Serial.println(raw);
   buffer.push(raw);
-  Serial.print("Finished in ");
-  Serial.println(millis() - start);
   this->sensor.reset_search();
   
   return true;

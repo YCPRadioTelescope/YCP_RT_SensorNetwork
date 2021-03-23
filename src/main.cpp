@@ -89,7 +89,7 @@ bool CbAccelEventFlag = false;
 // counters for each clock driven interrupt
 int ethernetcounter = 0;
 int eltempcounter = 0;
-int aztempcounter = 500;    //add offset so temps are not samples at the same time
+int aztempcounter = 0;    
 int encodercounter =0;
 
 // Timer interrupt
@@ -255,7 +255,7 @@ void loop() {
   //check if temp sensors are ready to be read. Read every 1s
   if(eltempcounter >= 1000){
     eltempcounter = 0;
-
+    
     if(InitEl1TempFlag && !EL1Errored){
 
       // gets the Elvation motor temperature and checks if sensor is good
@@ -274,6 +274,7 @@ void loop() {
         Serial.println("El Temp Senor 2 Stoped Working");
       }        
     }
+    
   }
   if(aztempcounter >= 1500){
     aztempcounter = 500;    //add offset so temps are not samples at the same time
@@ -345,9 +346,16 @@ void loop() {
     
     prepairTransit(dataToSend, dataSize, &adxlEl.buffer, &adxlAz.buffer, &adxlCb.buffer, &tempSensorEl1.buffer, &tempSensorAz1.buffer, &emptyBuff, &emptyBuff);
 
-    SendDataToControlRoom(dataToSend, dataSize, ControlRoomIP, TCPPORT, client);
-    
+    if(client.connected()){
+      SendDataToControlRoom(dataToSend, dataSize, ControlRoomIP, TCPPORT, client);
+    }
+    else{
+      delay(1550);
+      //SCB_AIRCR = 0x05FA0004;  // does a software reset
+    }
+
     free(dataToSend);
+
     wdog1.feed(); //reset watchdog
     // We need this but I'm not sure why it's hanging here :(
     //client.flush();
