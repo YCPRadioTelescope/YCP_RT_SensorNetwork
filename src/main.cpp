@@ -131,7 +131,7 @@ void ADXLCB_ISR() {
 }
 
 void setup() {
-
+  
   Ethernet.begin(mac, ip, gateway, gateway, subnet);
   if (Ethernet.hardwareStatus() == EthernetNoHardware) {
     Serial.println("Ethernet shield was not found.  Sorry, can't run without hardware. :(");
@@ -170,6 +170,8 @@ void setup() {
   }
   Serial.println("Client found");
 
+  wdog1.init();   // ~1.5s watchdog timeout
+
   size_t bytes = controlRoomClient.available();
   uint8_t *ptr;
   uint8_t data[bytes] = {0};
@@ -204,9 +206,16 @@ void setup() {
     digitalWrite(AdxlElPowerPin, HIGH);
     delay(10);
     adxlEl.init();                               // initialize an ADXL345 to communicate using I2C
+    Serial.println("El Adxl Initialized");
+    Serial.println("Starting El Adxl Self-Test");
+    if(adxlEl.selfTest()){
+        Serial.println("El ADXL Self-Test Passed"); 
+    }
+    else{
+      Serial.println("El ADXL Self-Test Failed"); 
+    }
     attachInterrupt(digitalPinToInterrupt(AdxlElIntPin), ADXLEL_ISR, RISING);   // Attach ADXL345 Interrupt
     ElAccelEventFlag = true;         // init as true to empty 
-    Serial.println("El Adxl Initialized");
   }
   else{
     digitalWrite(AdxlElPowerPin, LOW);
@@ -217,9 +226,16 @@ void setup() {
     digitalWrite(AdxlAzPowerPin, HIGH);
     delay(10);
     adxlAz.init();                               // initialize an ADXL345 to communicate using I2C
+    Serial.println("Az Adxl Initialized");
+    Serial.println("Starting Az ADXL Self-Test");
+    if(adxlAz.selfTest()){
+        Serial.println("Az ADXL Self-Test Passed");
+    }
+    else{
+        Serial.println("Az ADXL Self-Test Failed");
+    }
     attachInterrupt(digitalPinToInterrupt(AdxlAzIntPin), ADXLAZ_ISR, RISING);   // Attach ADXL345 Interrupt
     AzAccelEventFlag = true;         // init as true to empty 
-    Serial.println("Az Adxl Initialized");
   }
   else{
     digitalWrite(AdxlAzPowerPin, LOW);
@@ -230,9 +246,16 @@ void setup() {
     digitalWrite(AdxlCbPowerPin, HIGH);
     delay(10);
     adxlCb.init();                               // initialize an ADXL345 to communicate using I2C
+    Serial.println("Cb Adxl Initialized");
+    Serial.println("Starting Cb ADXL Self-Test");
+    if(adxlCb.selfTest()){
+        Serial.println("Cb ADXL Self-Test Passed");
+    }
+    else{
+        Serial.println("Cb ADXL Self-Test Failed");
+    }
     attachInterrupt(digitalPinToInterrupt(AdxlCbIntPin), ADXLCB_ISR, RISING);   // Attach ADXL345 Interrupt
     CbAccelEventFlag = true;         // init as true to empty 
-    Serial.println("Cb Adxl Initialized");
   }
   else{
     digitalWrite(AdxlCbPowerPin, LOW);
@@ -245,8 +268,8 @@ void setup() {
 
   myTimer.begin(TimerEvent_ISR, TIMER_1MS);  // TimerEvent to run every millisecond
   
-  Serial.printf("POR reset ... init for ~1,5s watchdog timeout\n");
-  wdog1.init();   // ~1.5s watchdog timeout
+  wdog1.feed(); //reset watchdog
+  
 }
 
 // This is the super loop where we will be keeping track of counters, setting eventflags and calling proccess base on if any event flags were set
@@ -350,8 +373,7 @@ void loop() {
       SendDataToControlRoom(dataToSend, dataSize, ControlRoomIP, TCPPORT, client);
     }
     else{
-      delay(1550);
-      //SCB_AIRCR = 0x05FA0004;  // does a software reset
+      SCB_AIRCR = 0x05FA0004;  // does a software reset
     }
 
     free(dataToSend);

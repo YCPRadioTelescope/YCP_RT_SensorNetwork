@@ -23,5 +23,5 @@ void WatchDog::feed() {
   // feed the dog
   WDOG1_WSR = 0x5555;
   WDOG1_WSR = 0xAAAA;
-  Serial.printf("fed the dog\n");
+  //Serial.printf("fed the dog\n");
 }

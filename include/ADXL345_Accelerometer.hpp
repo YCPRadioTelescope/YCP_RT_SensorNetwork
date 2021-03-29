@@ -88,6 +88,14 @@
 #define ADXL345_READ_ERROR	1		// Accelerometer Reading Error
 #define ADXL345_BAD_ARG		2		// Bad Argument
 
+typedef enum {
+  ADXL345_RANGE_16_G = 0b11, ///< +/- 16g
+  ADXL345_RANGE_8_G = 0b10,  ///< +/- 8g
+  ADXL345_RANGE_4_G = 0b01,  ///< +/- 4g
+  ADXL345_RANGE_2_G = 0b00   ///< +/- 2g (default value)
+} range_t;
+
+
 
 struct acc
 {
@@ -108,18 +116,16 @@ public:
 	
 	ADXL345(TwoWire& wire);
 	
-
+	bool selfTest();
     void init();
     void emptyFifo();
-
 	void powerCycle(uint8_t pinNumber);
 
 	void powerOn();
 
 	void readAccel(int* x, int* y, int* z);
-	
-	void setRate(double rate);
-	
+	void clearAccel();
+
 	void setInterruptMapping(byte interruptBit, bool interruptPin);
 	void setInterrupt(byte interruptBit, bool state);
     
