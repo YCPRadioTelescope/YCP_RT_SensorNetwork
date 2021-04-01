@@ -21,15 +21,19 @@
 #define AdxlElPowerPin 32
 #define AdxlAzPowerPin 4
 #define AdxlCbPowerPin 5
+#define LED1 38
+#define LED2 37
+#define LED3 36
+#define LED4 35
 
-#define TCPPORT 1600
+#define TCPPORT 1600  
 #define CRPORT 1680   //Control Room Port
 // Create an IntervalTimer object 
 IntervalTimer myTimer;
-IntervalTimer myTimeout;
 
-WatchDog wdog1;
+WatchDog wdog1; //Watchdog timmer used for resets
 
+// Sensor constructors 
 TemperatureSensor tempSensorEl1(TempEl1Pin);
 TemperatureSensor tempSensorEl2(TempEl2Pin);
 TemperatureSensor tempSensorAz1(TempAz1Pin);
@@ -58,11 +62,13 @@ EthernetServer server(CRPORT);
 std::queue <int16_t> emptyBuff;
 std::queue <acc> emptyAccBuff;
 
-int const ADXL345_TimeOut_1S = 1000000; 
+// Time for timmer interrupt
 int const TIMER_1MS = 1000;
 
 float Celsius = 0;
 float Fahrenheit = 0;
+
+bool HeartBeatLED = false;      // Used to see if super loop is running as expected
 
 // Event flags that are set by the Control Room used to Configure and Initialize
 bool InitEl1TempFlag;
@@ -132,6 +138,14 @@ void ADXLCB_ISR() {
 
 void setup() {
   
+  pinMode(LED1, OUTPUT);
+  pinMode(LED2, OUTPUT);
+  pinMode(LED3, OUTPUT);
+  pinMode(LED4, OUTPUT);
+  digitalWrite(LED1, HIGH);
+  digitalWrite(LED2, HIGH);
+  digitalWrite(LED3, LOW);
+  digitalWrite(LED4, HIGH);
   Ethernet.begin(mac, ip, gateway, gateway, subnet);
   if (Ethernet.hardwareStatus() == EthernetNoHardware) {
     Serial.println("Ethernet shield was not found.  Sorry, can't run without hardware. :(");
@@ -169,6 +183,7 @@ void setup() {
     controlRoomClient = server.available();
   }
   Serial.println("Client found");
+  digitalWrite(LED4, LOW);  // Turn on LED4 to show connection to Control Room
 
   wdog1.init();   // ~1.5s watchdog timeout
 
@@ -280,7 +295,7 @@ void loop() {
     eltempcounter = 0;
     
     if(InitEl1TempFlag && !EL1Errored){
-
+      
       // gets the Elvation motor temperature and checks if sensor is good
       if(!tempSensorEl1.getTemp()){
         EL1Errored = true;
@@ -342,9 +357,7 @@ void loop() {
   if(ElAccelEventFlag){
     
     ElAccelEventFlag = false;
-    myTimeout.begin(TimeOutEvent_ISR, ADXL345_TimeOut_1S);
     adxlEl.emptyFifo();      // gets the x y and z cordnates and prints them to the serial port.
-    myTimeout.end();
   }
   
   if(AzAccelEventFlag){
@@ -363,6 +376,26 @@ void loop() {
   if(ethernetcounter >= 250){
     ethernetcounter = 0;
 
+    // Check if ADXLs stopped working and power cycle them if so
+    if(adxlAz.buffer.size() == 0 && InitAzAccelFlag){
+      digitalWrite(AdxlAzPowerPin, HIGH);
+      delay(10);
+      AzAccelEventFlag = true;
+      Serial.println("Az ADXL reset");
+    }
+    if(adxlEl.buffer.size() == 0 && InitElAccelFlag){
+      digitalWrite(AdxlElPowerPin, HIGH);
+      delay(10);
+      ElAccelEventFlag = true; 
+      Serial.println("El ADXL reset");
+    }
+    if(adxlCb.buffer.size() == 0 && InitCbAccelFlag){
+      digitalWrite(AdxlCbPowerPin, HIGH);
+      delay(10);
+      CbAccelEventFlag = true;  
+      Serial.println("Cb ADXL reset");       
+    }
+
     uint32_t dataSize = calcTransitSize(adxlEl.buffer.size(), adxlAz.buffer.size(), adxlCb.buffer.size(), tempSensorEl1.buffer.size(), tempSensorAz1.buffer.size(),0,0); // determine the size of the array that needs to be alocated
     uint8_t *dataToSend;
     dataToSend = (uint8_t *)malloc(dataSize * sizeof(uint8_t)); //malloc needs to be used becaus stack size on the loop task is about 4k so this needs to go on the heap
@@ -379,6 +412,8 @@ void loop() {
     free(dataToSend);
 
     wdog1.feed(); //reset watchdog
+    HeartBeatLED = !HeartBeatLED;
+    digitalWrite(LED1, HeartBeatLED);
     // We need this but I'm not sure why it's hanging here :(
     //client.flush();
   }
