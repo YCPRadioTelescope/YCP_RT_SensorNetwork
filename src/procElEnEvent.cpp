@@ -26,6 +26,8 @@ void ElevationEncoder::procElEnEvent(void) {
     //equation translate the digital count to an angle, 49-50 means -8 degrees and 449-450 means 92 degrees
     //outputAngle = .25 * elEnDigData - 20.375;
 
+    //new offest with el en reversed would be 104.375
+
     //print the angle translated for debugging
     //Serial.print("El En Angle: ");
     //Serial.println(outputAngle);

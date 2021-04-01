@@ -183,12 +183,14 @@ void ADXL345::emptyFifo(){
 	uint8_t fifolength = 0;
 	readFromI2C(ADXL345_FIFO_STATUS,1, &fifolength);
 	fifolength = fifolength & (uint8_t)0b00111111;		//get the number of data values stored in FIFO
+	//Serial.print("Buffer Size = ");
+	//Serial.println(fifolength);
 	for(int i =0; i < fifolength; i++){  
 
 		readAccel(&x,&y,&z);
 
 		buffer.push({x,y,z});
-		//delayMicroseconds(5);                       // minimum time between last read and start of the next read is 5 us
+		delayMicroseconds(5);                       // minimum time between last read and start of the next read is 5 us
 		//Serial.print(x);
 		//Serial.print(", ");
 		//Serial.print(y);
@@ -224,12 +226,6 @@ void ADXL345::readAccel(int *x, int *y, int *z){
 	*y = (short)((accelwire.read() | accelwire.read() << 8));
 	*z = (short)((accelwire.read() | accelwire.read() << 8));
 }
-void ADXL345::powerCycle(uint8_t pinNumber) {
-	digitalWrite(pinNumber, LOW);
-    delay(10);
-	digitalWrite(pinNumber, HIGH);
-	delay(10);
-}
 
 void ADXL345::powerOn() {
 	if(I2C) {
@@ -241,7 +237,6 @@ void ADXL345::powerOn() {
 	writeToI2C(ADXL345_POWER_CTL, 16);	// Auto_Sleep
 	writeToI2C(ADXL345_POWER_CTL, 8);	// Measure
 }
-
 /*********************** INTERRUPT MAPPING **************************/
 /*         Set the Mapping of an Interrupt to pin1 or pin2          */
 // eg: setInterruptMapping(ADXL345_INT_DOUBLE_TAP_BIT,ADXL345_INT2_PIN);
