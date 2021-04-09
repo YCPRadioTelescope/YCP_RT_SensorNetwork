@@ -55,6 +55,8 @@
 #define ADXL345_BW_0_05			0x0			// 0000		IDD = 23uA
 
 
+
+
  /************************** INTERRUPT PINS **************************/
 #define ADXL345_INT1_PIN		0x00		//INT1: 0
 #define ADXL345_INT2_PIN		0x01		//INT2: 1
@@ -79,6 +81,79 @@
 #define ADXL345_WATERMARK				0x01
 #define ADXL345_OVERRUNY				0x00
 
+/********************** POWER MODES **********************/
+#define ADXL345_LOW_POWER_MODE		0x01
+#define ADXL345_NORMAL_POWER_MODE	0x00
+
+/********************** FIFO MODES **********************/
+#define ADXL345_TRIGGER_MODE		0x03
+#define ADXL345_STREAM_MODE			0x02
+#define ADXL345_FIFO_MODE			0x01
+#define ADXL345_BYPASS_MODE			0x00
+
+/********************** SAMPLE NUMBERS **********************/
+#define ADXL345_ONE_SAMPLES				0x00
+#define ADXL345_TWO_SAMPLES				0x01
+#define ADXL345_THREE_SAMPLES			0x02
+#define ADXL345_FOUR_SAMPLES			0x03
+#define ADXL345_FIVE_SAMPLES			0x04
+#define ADXL345_SIX_SAMPLES				0x05
+#define ADXL345_SEVEN_SAMPLES			0x06
+#define ADXL345_EIGHT_SAMPLES			0x07
+#define ADXL345_NINE_SAMPLES			0x08
+#define ADXL345_TEN_SAMPLES				0x09
+#define ADXL345_ELEVEN_SAMPLES			0x0A
+#define ADXL345_TWELVE_SAMPLES			0x0B
+#define ADXL345_THIRTEEN_SAMPLES		0x0C
+#define ADXL345_FOURTEEN_SAMPLES		0x0D
+#define ADXL345_FITHTEEN_SAMPLES		0x0E
+#define ADXL345_SIXTEEN_SAMPLES			0x0F
+#define ADXL345_SEVENTEEN_SAMPLES		0x10
+#define ADXL345_EIGHTEEN_SAMPLES		0x11
+#define ADXL345_NINETEEN_SAMPLES		0x12
+#define ADXL345_TWENTY_SAMPLES			0x13
+#define ADXL345_TWENTY_ONE_SAMPLES		0x14
+#define ADXL345_TWENTY_TWO_SAMPLES		0x15
+#define ADXL345_TWENTY_THREE_SAMPLES	0x16
+#define ADXL345_TWENTY_FOUR_SAMPLES		0x17
+#define ADXL345_TWENTY_FIVE_SAMPLES		0x18
+#define ADXL345_TWENTY_SIX_SAMPLES		0x19
+#define ADXL345_TWENTY_SEVEN_SAMPLES	0x1A
+#define ADXL345_TWENTY_EIGHT_SAMPLES	0x1B
+#define ADXL345_TWENTY_NINE_SAMPLES		0x1C
+#define ADXL345_THIRTY_SAMPLES			0x1D
+#define ADXL345_THIRTY_ONE_SAMPLES		0x1E
+#define ADXL345_THIRTY_TWO_SAMPLES		0x1F
+
+/************************** SELF-TEST **************************/
+#define ADXL345_DISABLE_SELF_TEST		0x00		
+#define ADXL345_ENABLE_SELF_TEST		0x01		
+
+/************************** SPI MODE **************************/
+#define ADXL345_4_WIRE_SPI_MODE		0x00		
+#define ADXL345_3_WIRE_SPI_MODE		0x01	
+
+/************************** INTERRUPT TRIGGER **************************/
+#define ADXL345_INTERUPT_HIGH		0x00		
+#define ADXL345_INTERUPT_LOW		0x01	
+
+/************************** RESOLUTION **************************/
+#define ADXL345_10_BIT_MODE				0x00		
+#define ADXL345_FULL_RESOLUTION_MODE	0x01	
+
+/************************** JUSTIFY BIT **************************/
+#define ADXL345_10_BIT_MODE				0x00		
+#define ADXL345_FULL_RESOLUTION_MODE	0x01	
+
+ /****************************** JUSTIFY BIT ******************************/
+#define ADXL345_RIGHT_JUSTIFY		0x00		
+#define ADXL345_LEFT_JUSTIFY		0x01
+
+/****************************** RANGE BITS ******************************/
+#define ADXL345_RANGE_2_G		0x00		
+#define ADXL345_RANGE_4_G		0x01
+#define ADXL345_RANGE_8_G		0x02		
+#define ADXL345_RANGE_16_G		0x03
 
  /****************************** ERRORS ******************************/
 #define ADXL345_OK			1		// No Error
@@ -87,13 +162,6 @@
 #define ADXL345_NO_ERROR	0		// Initial State
 #define ADXL345_READ_ERROR	1		// Accelerometer Reading Error
 #define ADXL345_BAD_ARG		2		// Bad Argument
-
-typedef enum {
-  ADXL345_RANGE_16_G = 0b11, ///< +/- 16g
-  ADXL345_RANGE_8_G = 0b10,  ///< +/- 8g
-  ADXL345_RANGE_4_G = 0b01,  ///< +/- 4g
-  ADXL345_RANGE_2_G = 0b00   ///< +/- 2g (default value)
-} range_t;
 
 
 
@@ -128,6 +196,9 @@ public:
 	void setInterruptMapping(byte interruptBit, bool interruptPin);
 	void setInterrupt(byte interruptBit, bool state);
     
+	void printDataFormat();
+	void printBWRate();
+	void printFIFO_CTL();
 	
 private:
 	void writeToI2C(byte address, byte val);

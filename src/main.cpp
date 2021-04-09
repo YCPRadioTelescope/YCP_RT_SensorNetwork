@@ -70,7 +70,7 @@ float Fahrenheit = 0;
 
 bool HeartBeatLED = false;      // Used to see if super loop is running as expected
 
-// Event flags that are set by the Control Room used to Configure and Initialize
+// Event flags that are set by the Control Room used to configure and initialize sensors
 bool InitEl1TempFlag;
 bool InitEl2TempFlag;
 bool InitAz1TempFlag;
@@ -96,8 +96,14 @@ bool CbAccelEventFlag = false;
 int ethernetcounter = 0;
 int eltempcounter = 0;
 int aztempcounter = 0;    
-int encodercounter =0;
+int encodercounter = 0;
 
+// Time threshold for each clock driven interrupt
+int aztempoffset = 500; // offset so temp sensors don't sample at the dame time
+int ethernetthreshold = 250;
+int eltempthreshold = 1000;
+int aztempthreshold = 1000 + aztempoffset;
+int encoderthreshold = 20;
 // Timer interrupt
 void TimerEvent_ISR(){
   //increment each clock event counter by 1
@@ -107,7 +113,6 @@ void TimerEvent_ISR(){
   if(InitAz1TempFlag || InitAz2TempFlag){
     aztempcounter++;
   }
-  //Serial.println("TimerISR hit");
   if(InitElEncoderFlag || InitAzEncoderFlag){
 
     encodercounter++;
@@ -115,10 +120,6 @@ void TimerEvent_ISR(){
 
   ethernetcounter++;
   
-}
-// Time out interrupt
-void TimeOutEvent_ISR(){
-  Serial.println("Time out hit");
 }
 
 /********************* ISR *********************/
@@ -138,14 +139,17 @@ void ADXLCB_ISR() {
 
 void setup() {
   
+  // Setup LEDs
   pinMode(LED1, OUTPUT);
   pinMode(LED2, OUTPUT);
   pinMode(LED3, OUTPUT);
   pinMode(LED4, OUTPUT);
   digitalWrite(LED1, HIGH);
   digitalWrite(LED2, HIGH);
-  digitalWrite(LED3, LOW);
+  digitalWrite(LED3, LOW);  // Turn LED on to indicate power
   digitalWrite(LED4, HIGH);
+
+  // Setup and start Teensy Ethernet
   Ethernet.begin(mac, ip, gateway, gateway, subnet);
   if (Ethernet.hardwareStatus() == EthernetNoHardware) {
     Serial.println("Ethernet shield was not found.  Sorry, can't run without hardware. :(");
@@ -159,6 +163,7 @@ void setup() {
     // Connect to the control room TCP Client
     if(client.connect(ControlRoomIP, TCPPORT)){
         Serial.println("Connected to the control room's TCP server.");
+        // Request sensor configuration
         client.write("Send Sensor Configuration");
     }
     else{
@@ -187,6 +192,7 @@ void setup() {
 
   wdog1.init();   // ~1.5s watchdog timeout
 
+  // Read the configuration packet
   size_t bytes = controlRoomClient.available();
   uint8_t *ptr;
   uint8_t data[bytes] = {0};
@@ -203,24 +209,20 @@ void setup() {
   InitElAccelFlag = data[7] == 0 ? false : true;
   InitCbAccelFlag = data[8] == 0 ? false : true;
 
-  for (uint8_t j = 0; j < bytes; j++)
-  {
-    Serial.print(data[j]);
-    Serial.print("  ");
-  }
-  Serial.println();
-
+  // Send acknoledgement to Control Room
   controlRoomClient.write("acknoledge");
   // give time to receive the data
   delay(2);
   // close the connection:
   controlRoomClient.stop();
 
+  // Setup ADXLs
   pinMode(AdxlElPowerPin, OUTPUT);
   if(InitElAccelFlag){
     digitalWrite(AdxlElPowerPin, HIGH);
     delay(10);
     adxlEl.init();                               // initialize an ADXL345 to communicate using I2C
+    Serial.println();
     Serial.println("El Adxl Initialized");
     Serial.println("Starting El Adxl Self-Test");
     if(adxlEl.selfTest()){
@@ -229,6 +231,11 @@ void setup() {
     else{
       Serial.println("El ADXL Self-Test Failed"); 
     }
+    Serial.println();
+    Serial.println("El Configuration-"); 
+    adxlEl.printDataFormat();
+    adxlEl.printBWRate();
+    adxlEl.printFIFO_CTL();
     attachInterrupt(digitalPinToInterrupt(AdxlElIntPin), ADXLEL_ISR, RISING);   // Attach ADXL345 Interrupt
     ElAccelEventFlag = true;         // init as true to empty 
   }
@@ -241,6 +248,7 @@ void setup() {
     digitalWrite(AdxlAzPowerPin, HIGH);
     delay(10);
     adxlAz.init();                               // initialize an ADXL345 to communicate using I2C
+    Serial.println();
     Serial.println("Az Adxl Initialized");
     Serial.println("Starting Az ADXL Self-Test");
     if(adxlAz.selfTest()){
@@ -249,6 +257,11 @@ void setup() {
     else{
         Serial.println("Az ADXL Self-Test Failed");
     }
+    Serial.println();
+    Serial.println("Az Configuration-"); 
+    adxlAz.printDataFormat();
+    adxlAz.printBWRate();
+    adxlAz.printFIFO_CTL();
     attachInterrupt(digitalPinToInterrupt(AdxlAzIntPin), ADXLAZ_ISR, RISING);   // Attach ADXL345 Interrupt
     AzAccelEventFlag = true;         // init as true to empty 
   }
@@ -261,6 +274,7 @@ void setup() {
     digitalWrite(AdxlCbPowerPin, HIGH);
     delay(10);
     adxlCb.init();                               // initialize an ADXL345 to communicate using I2C
+    Serial.println();
     Serial.println("Cb Adxl Initialized");
     Serial.println("Starting Cb ADXL Self-Test");
     if(adxlCb.selfTest()){
@@ -269,6 +283,11 @@ void setup() {
     else{
         Serial.println("Cb ADXL Self-Test Failed");
     }
+    Serial.println();
+    Serial.println("Cb Configuration-"); 
+    adxlCb.printDataFormat();
+    adxlCb.printBWRate();
+    adxlCb.printFIFO_CTL();
     attachInterrupt(digitalPinToInterrupt(AdxlCbIntPin), ADXLCB_ISR, RISING);   // Attach ADXL345 Interrupt
     CbAccelEventFlag = true;         // init as true to empty 
   }
@@ -291,7 +310,7 @@ void setup() {
 void loop() {
   
   //check if temp sensors are ready to be read. Read every 1s
-  if(eltempcounter >= 1000){
+  if(eltempcounter >= eltempthreshold){
     eltempcounter = 0;
     
     if(InitEl1TempFlag && !EL1Errored){
@@ -314,8 +333,8 @@ void loop() {
     }
     
   }
-  if(aztempcounter >= 1500){
-    aztempcounter = 500;    //add offset so temps are not samples at the same time
+  if(aztempcounter >= aztempthreshold){
+    aztempcounter = aztempoffset;    //add offset so temps are not samples at the same time
 
     if(!Az1Errored && InitAz1TempFlag){
        // gets the Azmuth motor temperature
@@ -333,7 +352,7 @@ void loop() {
 
   }
   //check if elevation encoder is ready to be read. Read every 20ms
-  if(encodercounter >= 20){//TODO: switch to constant
+  if(encodercounter >= encoderthreshold){//TODO: switch to constant
     encodercounter = 0;
     
     if(InitElEncoderFlag){
@@ -345,10 +364,10 @@ void loop() {
     //Send only the encoder information to the Control Room
     uint32_t dataSize = calcTransitSize(0, 0, 0, 0, 0, elencoder.buffer.size(), azencoder.buffer.size()); // determine the size of the array that needs to be alocated
     uint8_t *dataToSend;
-    dataToSend = (uint8_t *)malloc(dataSize * sizeof(uint8_t)); //malloc needs to be used becaus stack size on the loop task is about 4k so this needs to go on the heap
-    
+    dataToSend = (uint8_t *)malloc(dataSize * sizeof(uint8_t)); 
+    // Create packet to send to Control Room
     prepairTransit(dataToSend, dataSize, &emptyAccBuff, &emptyAccBuff, &emptyAccBuff, &emptyBuff, &emptyBuff, &elencoder.buffer, &azencoder.buffer);
-
+    // Send packet to Control Room
     SendDataToControlRoom(dataToSend, dataSize, ControlRoomIP, TCPPORT, client);
     
     free(dataToSend);
@@ -373,9 +392,9 @@ void loop() {
   }
 
   // Send all sensor data except encoder
-  if(ethernetcounter >= 250){
+  if(ethernetcounter >= ethernetthreshold){
     ethernetcounter = 0;
-
+    
     // Check if ADXLs stopped working and power cycle them if so
     if(adxlAz.buffer.size() == 0 && InitAzAccelFlag){
       digitalWrite(AdxlAzPowerPin, HIGH);

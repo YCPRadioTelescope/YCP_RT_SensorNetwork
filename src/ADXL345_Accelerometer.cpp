@@ -35,8 +35,8 @@ bool ADXL345::selfTest(){
 	int x,y,z;
 
 	int Xst_off = 0, Yst_off = 0, Zst_off = 0;
-	writeToI2C(ADXL345_BW_RATE, (uint8_t)0b00001101); // (0000| filler bits), (0| normal power mode), (1101| 800Hz sampling)
-	writeToI2C(ADXL345_DATA_FORMAT, (uint8_t)0b00001011); // (0| disable self test), (0| 4-wire SPI mode), (0| interrupts active high), (0| fill bit), (1| full-resolution), (0| right-justified), (11| 16 g mode)
+ 	writeToI2C(ADXL345_BW_RATE, ADXL345_NORMAL_POWER_MODE << 4 | ADXL345_BW_400); // (000| filler bits), (0| normal power mode), (1101| 800Hz sampling)
+	writeToI2C(ADXL345_DATA_FORMAT, (uint8_t)ADXL345_DISABLE_SELF_TEST <<  7 | ADXL345_4_WIRE_SPI_MODE << 6 | ADXL345_INTERUPT_HIGH << 5 | ADXL345_FULL_RESOLUTION_MODE << 3 | ADXL345_RIGHT_JUSTIFY << 2 | ADXL345_RANGE_16_G); // (0| disable self test), (0| 4-wire SPI mode), (0| interrupts active high), (0| fill bit), (1| full-resolution), (0| right-justified), (11| 16 g mode)
 	clearAccel();	// clear adxl buffer so no old data persists
 	delay(50); //collect data
 	readFromI2C(ADXL345_FIFO_STATUS,1, &fifolength);
@@ -61,8 +61,7 @@ bool ADXL345::selfTest(){
 	
 	int Xst_on = 0, Yst_on = 0, Zst_on = 0;
 	// Turn on self test
-	writeToI2C(ADXL345_DATA_FORMAT, (uint8_t)0b10001011); // (1| enable self test), (0| 4-wire SPI mode), (0| interrupts active high), (0| fill bit), (1| full-resolution), (0| right-justified), (11| 16 g mode)
-	
+	writeToI2C(ADXL345_DATA_FORMAT, ADXL345_ENABLE_SELF_TEST <<  7 | ADXL345_4_WIRE_SPI_MODE << 6 | ADXL345_INTERUPT_HIGH << 5 | ADXL345_FULL_RESOLUTION_MODE << 3 | ADXL345_RIGHT_JUSTIFY << 2 | ADXL345_RANGE_16_G); // (1| enable self test), (0| 4-wire SPI mode), (0| interrupts active high), (0| fill bit), (1| full-resolution), (0| right-justified), (11| 16 g mode)
 	delay(10); // output needs some time to settle 
 	clearAccel();
 
@@ -88,7 +87,7 @@ bool ADXL345::selfTest(){
 	//Serial.println(Zst_on);
 
 	// Turn off self test
-	writeToI2C(ADXL345_DATA_FORMAT, (uint8_t)0b00001011); // (0| enable self test), (0| 4-wire SPI mode), (0| interrupts active high), (0| fill bit), (1| full-resolution), (0| right-justified), (11| 16 g mode)
+	writeToI2C(ADXL345_DATA_FORMAT, (uint8_t)ADXL345_DISABLE_SELF_TEST <<  7 | ADXL345_4_WIRE_SPI_MODE << 6 | ADXL345_INTERUPT_HIGH << 5 | ADXL345_FULL_RESOLUTION_MODE << 3 | ADXL345_RIGHT_JUSTIFY << 2 | ADXL345_RANGE_16_G); // (0| enable self test), (0| 4-wire SPI mode), (0| interrupts active high), (0| fill bit), (1| full-resolution), (0| right-justified), (11| 16 g mode)
 	
 	delay(10); // output needs some time to settle 
 	clearAccel();	// clear adxl buffer so no old data persists
@@ -137,40 +136,199 @@ bool ADXL345::selfTest(){
 /*          Configure ADXL345 Settings         */
 void ADXL345::init(){
 
-  writeToI2C(ADXL345_DATA_FORMAT, (uint8_t)0b00001011); // (0| disable self test), (0| 4-wire SPI mode), (0| interrupts active high), (0| fill bit), (1| full-resolution), (0| right-justified), (11| 16 g mode)
+  writeToI2C(ADXL345_DATA_FORMAT, ADXL345_DISABLE_SELF_TEST <<  7 | ADXL345_4_WIRE_SPI_MODE << 6 | ADXL345_INTERUPT_HIGH << 5 | ADXL345_FULL_RESOLUTION_MODE << 3 | ADXL345_RIGHT_JUSTIFY << 2 | ADXL345_RANGE_16_G); // (0| disable self test), (0| 4-wire SPI mode), (0| interrupts active high), (0| fill bit), (1| full-resolution), (0| right-justified), (11| 16 g mode)
   powerOn();                     // Power on the ADXL345
   
   setInterruptMapping(ADXL345_INT_WATERMARK_BIT, ADXL345_INT1_PIN);    // Map Watermark interrupt to int pin 1
   setInterrupt(ADXL345_INT_WATERMARK_BIT, 1);                          // Enable Watermark interrupt 
+  writeToI2C(ADXL345_FIFO_CTL,ADXL345_STREAM_MODE <<  6 | ADXL345_INT1_PIN << 5 | ADXL345_THIRTY_TWO_SAMPLES);			// (10|FIFO mode) (0|trigger to INT1) (11111|trigger at 32 samples)
+  writeToI2C(ADXL345_BW_RATE, ADXL345_NORMAL_POWER_MODE << 4 | ADXL345_BW_400); // (000| filler bits), (0| normal power mode), (1101| 800Hz sampling)
   
-  writeToI2C(ADXL345_FIFO_CTL,0b01111111);								// (10|FIFO mode) (1|triger to INT1) (11111|trigger at 32 samples)
-  writeToI2C(ADXL345_BW_RATE, (uint8_t)0b00001101); // (0000| filler bits), (0| normal power mode), (1101| 800Hz sampling)
-  Serial.print  ("Range:         +/- "); 
-  
-  uint8_t test;
-  readFromI2C(ADXL345_DATA_FORMAT,1,&test);
-  switch(test & 0x03)
-  {
-    case ADXL345_RANGE_16_G:
-      Serial.print  ("16 "); 
-      break;
-    case ADXL345_RANGE_8_G:
-      Serial.print  ("8 "); 
-      break;
-    case ADXL345_RANGE_4_G:
-      Serial.print  ("4 "); 
-      break;
-    case ADXL345_RANGE_2_G:
-      Serial.print  ("2 "); 
-      break;
-    default:
-      Serial.print  ("?? "); 
-      break;
-  }  
-  Serial.println(" g");  
 }
 
+void ADXL345::printDataFormat(){
 
+	uint8_t dataFormat;
+	readFromI2C(ADXL345_DATA_FORMAT,1,&dataFormat);
+	Serial.print  ("Self Test: "); 
+	switch((dataFormat & 0x80) >> 7)
+	{
+		case ADXL345_DISABLE_SELF_TEST:
+		Serial.println  ("Disabled "); 
+		break;
+		case ADXL345_ENABLE_SELF_TEST:
+		Serial.println  ("Enabled "); 
+		break;
+		default:
+		Serial.println  ("?? "); 
+		break;
+	}  
+	Serial.print  ("SPI Mode: "); 
+	switch((dataFormat & 0x40) >> 6)
+	{
+		case ADXL345_4_WIRE_SPI_MODE:
+		Serial.println  ("4 Wire SPI Mode "); 
+		break;
+		case ADXL345_3_WIRE_SPI_MODE:
+		Serial.println  ("3 Wire SPI Mode "); 
+		break;
+		default:
+		Serial.println  ("?? "); 
+		break;
+	}  
+	Serial.print  ("Interupt Trigger: "); 
+	switch((dataFormat & 0x20) >> 5)
+	{
+		case ADXL345_INTERUPT_HIGH:
+		Serial.println  ("High "); 
+		break;
+		case ADXL345_INTERUPT_LOW:
+		Serial.println  ("Low "); 
+		break;
+		default:
+		Serial.println  ("?? "); 
+		break;
+	}  
+	
+	Serial.print  ("Resolution Mode: "); 
+	switch((dataFormat & 0x08) >> 4)
+	{
+		case ADXL345_FULL_RESOLUTION_MODE:
+		Serial.println  ("Full Resolution Mode "); 
+		break;
+		case ADXL345_10_BIT_MODE:
+		Serial.println  ("10 Bit Mode "); 
+		break;
+		default:
+		Serial.println  ("?? "); 
+		break;
+	}  
+
+	Serial.print  ("Justify Mode: "); 
+	switch((dataFormat & 0x04) >> 3)
+	{
+		case ADXL345_RIGHT_JUSTIFY:
+		Serial.println  ("Right "); 
+		break;
+		case ADXL345_LEFT_JUSTIFY:
+		Serial.println  ("Left "); 
+		break;
+		default:
+		Serial.println  ("?? "); 
+		break;
+	}  
+
+	Serial.print  ("Range: +/- "); 
+	switch(dataFormat & 0x03)
+	{
+		case ADXL345_RANGE_16_G:
+		Serial.print  ("16 "); 
+		break;
+		case ADXL345_RANGE_8_G:
+		Serial.print  ("8 "); 
+		break;
+		case ADXL345_RANGE_4_G:
+		Serial.print  ("4 "); 
+		break;
+		case ADXL345_RANGE_2_G:
+		Serial.print  ("2 "); 
+		break;
+		default:
+		Serial.print  ("?? "); 
+		break;
+	}  
+	Serial.println(" g"); 
+}
+
+void ADXL345::printBWRate(){
+	uint8_t BWRate;
+	readFromI2C(ADXL345_BW_RATE,1,&BWRate);
+	Serial.print  ("Power Mode: "); 
+	switch((BWRate & 0x10) >> 4)
+	{
+		case ADXL345_NORMAL_POWER_MODE:
+		Serial.println  ("Normal Power Mode "); 
+		break;
+		case ADXL345_LOW_POWER_MODE:
+		Serial.println  ("Low Power Mode "); 
+		break;
+		default:
+		Serial.println  ("?? "); 
+		break;
+	}  
+
+	Serial.print  ("Bandwidth Rate: "); 
+	switch(BWRate & 0x0F)
+	{
+		case ADXL345_BW_1600:
+		Serial.print  ("1600"); 
+		break;
+		case ADXL345_BW_800:
+		Serial.print  ("800"); 
+		break;
+		case ADXL345_BW_400:
+		Serial.print  ("400"); 
+		break;
+		case ADXL345_BW_200:
+		Serial.print  ("200"); 
+		break;
+		case ADXL345_BW_100:
+		Serial.print  ("100"); 
+		break;
+		case ADXL345_BW_50:
+		Serial.print  ("50"); 
+		break;
+		case ADXL345_BW_25:
+		Serial.print  ("25"); 
+		break;
+		case ADXL345_BW_12_5:
+		Serial.print  ("12.5"); 
+		break;
+		default:
+		Serial.print  ("<= 6.25"); 
+		break;
+	}  
+	Serial.println(" Hz"); 
+}
+
+void ADXL345::printFIFO_CTL(){
+	uint8_t FIFOReg;
+	readFromI2C(ADXL345_FIFO_CTL,1,&FIFOReg);
+	Serial.print  ("FIFO Mode: "); 
+	switch((FIFOReg & 0xC0) >> 6)
+	{
+		case ADXL345_TRIGGER_MODE:
+		Serial.println  ("Trigger Mode "); 
+		break;
+		case ADXL345_STREAM_MODE:
+		Serial.println  ("Stream Mode "); 
+		break;
+		case ADXL345_FIFO_MODE:
+		Serial.println  ("FIFO Mode "); 
+		break;
+		case ADXL345_BYPASS_MODE:
+		Serial.println  ("BYPASS Mode "); 
+		break;
+		default:
+		Serial.println  ("?? "); 
+		break;
+	}  
+	Serial.print  ("Trigger: "); 
+	switch((FIFOReg & 0x20) >> 5)
+	{
+		case ADXL345_INT1_PIN:
+		Serial.println  ("INT 1 Pin"); 
+		break;
+		case ADXL345_INT2_PIN:
+		Serial.println  ("INT 2 Pin"); 
+		break;
+		default:
+		Serial.println  ("?? "); 
+		break;
+	}
+	Serial.print  ("Samples: "); 
+	Serial.println  ((FIFOReg & 0x1F) + 1); 
+}
 /****************** MAIN CODE ******************/
 /* Accelerometer Readings */
 void ADXL345::emptyFifo(){
@@ -265,7 +423,7 @@ void ADXL345::readFromI2C(byte address, int num, byte _buff[]) {
 	accelwire.beginTransmission(ADXL345_DEVICE);
 	accelwire.write(address);
 	accelwire.endTransmission();
-	accelwire.requestFrom(ADXL345_DEVICE, num);  // Request 6 Bytes TODO:192
+	accelwire.requestFrom(ADXL345_DEVICE, num);  
 	int i = 0;
 	while(accelwire.available())
 	{
