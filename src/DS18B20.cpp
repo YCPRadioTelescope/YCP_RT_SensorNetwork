@@ -13,8 +13,8 @@ bool TemperatureSensor::getTemp(){
     //float celsius, fahrenheit;
   
     if ( !this->sensor.search(this->addr)) {
-    Serial.println("No more addresses.");
-    Serial.println();
+    Serial.println("No more tempaddresses.");
+    //Serial.println();
     this->sensor.reset_search();
     delay(250);
     return false;

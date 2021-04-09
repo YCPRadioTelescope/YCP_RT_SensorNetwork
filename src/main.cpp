@@ -82,8 +82,8 @@ bool InitAzAccelFlag;
 bool InitCbAccelFlag;
 
 // Error flags that are used to tell which temp sensor to use
-bool EL1Errored = false;
-bool EL2Errored = false;
+bool El1Errored = false;
+bool El2Errored = false;
 bool Az1Errored = false;
 bool Az2Errored = false;
 
@@ -313,22 +313,24 @@ void loop() {
   if(eltempcounter >= eltempthreshold){
     eltempcounter = 0;
     
-    if(InitEl1TempFlag && !EL1Errored){
+    if(InitEl1TempFlag && !El1Errored){
       
       // gets the Elvation motor temperature and checks if sensor is good
       if(!tempSensorEl1.getTemp()){
-        EL1Errored = true;
+        El1Errored = true;
         Serial.println("El Temp Senor 1 Stoped Working");
+        El2Errored = false;
       }
 
     }
 
     // if first temp sensor fails then use the second temp sesnor
-    if(InitEl2TempFlag && EL1Errored && !EL2Errored){
+    if(InitEl2TempFlag && El1Errored && !El2Errored){
 
       if(!tempSensorEl2.getTemp()){ 
-        EL2Errored = true;
+        El2Errored = true;
         Serial.println("El Temp Senor 2 Stoped Working");
+        El1Errored = false;  // try temp sensor 1 again if the second one fails
       }        
     }
     
@@ -341,12 +343,14 @@ void loop() {
       if(!tempSensorAz1.getTemp()){
         Az1Errored = true;
         Serial.println("Az Temp Senor 1 Stoped Working");
+        Az2Errored = false;
       }       
     }
     if(Az1Errored && InitAz2TempFlag && !Az2Errored){
       if(!tempSensorAz2.getTemp()){
         Az2Errored = true;
         Serial.println("Az Temp Senor 2 Stoped Working");
+        Az1Errored = false;  // try temp sensor 1 again if the second one fails
       }           
     }
 
