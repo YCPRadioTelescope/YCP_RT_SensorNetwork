@@ -71,10 +71,8 @@ float Fahrenheit = 0;
 bool HeartBeatLED = false;      // Used to see if super loop is running as expected
 
 // Event flags that are set by the Control Room used to configure and initialize sensors
-bool InitEl1TempFlag;
-bool InitEl2TempFlag;
-bool InitAz1TempFlag;
-bool InitAz2TempFlag;
+bool InitElTempFlag;
+bool InitAzTempFlag;
 bool InitElEncoderFlag;
 bool InitAzEncoderFlag;
 bool InitElAccelFlag;
@@ -107,10 +105,10 @@ int encoderthreshold = 20;
 // Timer interrupt
 void TimerEvent_ISR(){
   //increment each clock event counter by 1
-  if(InitEl1TempFlag || InitEl2TempFlag){
+  if(InitElTempFlag){
     eltempcounter++;
   }
-  if(InitAz1TempFlag || InitAz2TempFlag){
+  if(InitAzTempFlag){
     aztempcounter++;
   }
   if(InitElEncoderFlag || InitAzEncoderFlag){
@@ -199,15 +197,13 @@ void setup() {
   ptr = data;
   controlRoomClient.read(ptr, bytes);
 
-  InitEl1TempFlag = data[0] == 0 ? false : true;
-  InitEl2TempFlag = data[1] == 0 ? false : true;
-  InitAz1TempFlag = data[2] == 0 ? false : true;
-  InitAz2TempFlag = data[3] == 0 ? false : true;
-  InitElEncoderFlag = data[4] == 0 ? false : true;
-  InitAzEncoderFlag = data[5] == 0 ? false : true;
-  InitAzAccelFlag = data[6] == 0 ? false : true;
-  InitElAccelFlag = data[7] == 0 ? false : true;
-  InitCbAccelFlag = data[8] == 0 ? false : true;
+  InitElTempFlag = data[0] == 0 ? false : true;
+  InitAzTempFlag = data[1] == 0 ? false : true;
+  InitElEncoderFlag = data[2] == 0 ? false : true;
+  InitAzEncoderFlag = data[3] == 0 ? false : true;
+  InitAzAccelFlag = data[4] == 0 ? false : true;
+  InitElAccelFlag = data[5] == 0 ? false : true;
+  InitCbAccelFlag = data[6] == 0 ? false : true;
 
   // Send acknoledgement to Control Room
   controlRoomClient.write("acknoledge");
@@ -313,7 +309,7 @@ void loop() {
   if(eltempcounter >= eltempthreshold){
     eltempcounter = 0;
     
-    if(InitEl1TempFlag && !El1Errored){
+    if(InitElTempFlag && !El1Errored){
       
       // gets the Elvation motor temperature and checks if sensor is good
       if(!tempSensorEl1.getTemp()){
@@ -325,7 +321,7 @@ void loop() {
     }
 
     // if first temp sensor fails then use the second temp sesnor
-    if(InitEl2TempFlag && El1Errored && !El2Errored){
+    if(InitElTempFlag && El1Errored && !El2Errored){
 
       if(!tempSensorEl2.getTemp()){ 
         El2Errored = true;
@@ -338,7 +334,7 @@ void loop() {
   if(aztempcounter >= aztempthreshold){
     aztempcounter = aztempoffset;    //add offset so temps are not samples at the same time
 
-    if(!Az1Errored && InitAz1TempFlag){
+    if(!Az1Errored && InitAzTempFlag){
        // gets the Azmuth motor temperature
       if(!tempSensorAz1.getTemp()){
         Az1Errored = true;
@@ -346,7 +342,7 @@ void loop() {
         Az2Errored = false;
       }       
     }
-    if(Az1Errored && InitAz2TempFlag && !Az2Errored){
+    if(Az1Errored && InitAzTempFlag && !Az2Errored){
       if(!tempSensorAz2.getTemp()){
         Az2Errored = true;
         Serial.println("Az Temp Senor 2 Stoped Working");
