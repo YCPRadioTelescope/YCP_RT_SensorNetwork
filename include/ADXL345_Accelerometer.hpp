@@ -159,11 +159,12 @@
 #define ADXL345_OK			1		// No Error
 #define ADXL345_ERROR		0		// Error Exists
 
-#define ADXL345_NO_ERROR	0		// Initial State
-#define ADXL345_READ_ERROR	1		// Accelerometer Reading Error
-#define ADXL345_BAD_ARG		2		// Bad Argument
+#define ADXL345_SELF_TEST_PASS		1		// Self-test passed
+#define ADXL345_SELF_TEST_FAIL		0		// Self-test failed
 
-
+#define ADXL345_NO_ERROR			0	// Initial State
+#define ADXL345_NO_SAMPLES			1	// Sensor stopped sampling
+#define ADXL345_WATERMARK_MISSED	2	// Sensor missed the watermark and will not trigger the interupt
 
 struct acc
 {
@@ -177,8 +178,9 @@ class ADXL345
 {
 public:
 	bool status;					// Set When Error Exists 
+	byte error_code;
+	bool self_test;					// True if self-test passed
 	std::queue <acc> buffer;		// queue of acc buffers. This caused some references to be undefined in linker
-	byte error_code;				// Initial State
 	double gains[3];				// Counts to Gs
 	int wirenumber;
 	
@@ -192,6 +194,7 @@ public:
 	void powerOn();
 	void readAccel(int* x, int* y, int* z);
 	void clearAccel();
+	uint8_t getSampleBufSize();
 
 	void setInterruptMapping(byte interruptBit, bool interruptPin);
 	void setInterrupt(byte interruptBit, bool state);

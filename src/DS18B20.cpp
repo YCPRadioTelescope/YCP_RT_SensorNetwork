@@ -5,9 +5,11 @@
 //constructor for temperature sensor 
 TemperatureSensor::TemperatureSensor(uint8_t line){
     this->sensor = OneWire(line);
+    status = TEMPERATURE_OK;
+    error_code = TEMPERATURE_NO_ERROR;
 }
 
-bool TemperatureSensor::getTemp(){
+int16_t TemperatureSensor::getTemp(){
     byte i;
     byte data[12];
     //float celsius, fahrenheit;
@@ -17,13 +19,17 @@ bool TemperatureSensor::getTemp(){
     //Serial.println();
     this->sensor.reset_search();
     delay(250);
-    return false;
+    status = TEMPERATURE_ERROR;
+    error_code = TEMPERATURE_NO_DATA;
+    return -1;
   }
   
  
   if (OneWire::crc8(this->addr, 7) != this->addr[7]) {
       Serial.println("CRC is not valid!");
-      return false;
+      status = TEMPERATURE_ERROR;
+      error_code = TEMPERATURE_CRC_INVALID;
+      return -1;
   }
   
 
@@ -72,8 +78,9 @@ bool TemperatureSensor::getTemp(){
   //Serial.print(fahrenheit);
   //Serial.println(" Fahrenheit");
   //Serial.println(raw);
-  buffer.push(raw);
   this->sensor.reset_search();
-  
-  return true;
+
+  status = TEMPERATURE_OK;
+  error_code = TEMPERATURE_NO_ERROR;
+  return raw;
 }

@@ -129,6 +129,12 @@ bool ADXL345::selfTest(){
 	if(!Zgood){
 		Serial.println("Self-Test for Z axis failed");
 	}
+	if (Xgood && Ygood && Zgood){
+		self_test = ADXL345_SELF_TEST_PASS;
+	}
+	else{
+		self_test = ADXL345_SELF_TEST_FAIL;
+	}
 	return Xgood && Ygood && Zgood;
 }
 
@@ -372,6 +378,12 @@ void ADXL345::clearAccel(){
 
 	}
 }
+uint8_t ADXL345::getSampleBufSize(){
+	uint8_t fifolength = 0;
+	readFromI2C(ADXL345_FIFO_STATUS,1, &fifolength);
+	fifolength = fifolength & (uint8_t)0b00111111;		//get the number of data values stored in FIFO
+	return fifolength;
+}
 void ADXL345::readAccel(int *x, int *y, int *z){
 
 	accelwire.beginTransmission(ADXL345_DEVICE);
@@ -432,7 +444,6 @@ void ADXL345::readFromI2C(byte address, int num, byte _buff[]) {
 	}
 	if(i != num){
 		status = ADXL345_ERROR;
-		error_code = ADXL345_READ_ERROR;
 	}
 	
 }

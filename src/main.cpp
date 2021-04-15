@@ -41,8 +41,8 @@ TemperatureSensor tempSensorAz2(TempAz2Pin);
 ADXL345 adxlEl = ADXL345(Wire);
 ADXL345 adxlAz = ADXL345(Wire1);
 ADXL345 adxlCb = ADXL345(Wire2);
-ElevationEncoder elencoder = ElevationEncoder();
-AzimuthEncoder azencoder = AzimuthEncoder();
+ElevationEncoder elEncoder = ElevationEncoder();
+AzimuthEncoder azEncoder = AzimuthEncoder();
 
 //ethernet data
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
@@ -58,6 +58,9 @@ IPAddress ControlRoomIP = IPAddress(192, 168, 0, 10);
 EthernetClient client;
 //ethernet server
 EthernetServer server(CRPORT);
+
+std::queue <int16_t> tempSensorElBuffer;
+std::queue <int16_t> tempSensorAzBuffer;
 
 std::queue <int16_t> emptyBuff;
 std::queue <acc> emptyAccBuff;
@@ -78,12 +81,6 @@ bool InitAzEncoderFlag;
 bool InitElAccelFlag;
 bool InitAzAccelFlag;
 bool InitCbAccelFlag;
-
-// Error flags that are used to tell which temp sensor to use
-bool El1Errored = false;
-bool El2Errored = false;
-bool Az1Errored = false;
-bool Az2Errored = false;
 
 // Event flags that are check in the main loop to see what processes should be run
 bool ElAccelEventFlag = false;
@@ -222,7 +219,7 @@ void setup() {
     Serial.println("El Adxl Initialized");
     Serial.println("Starting El Adxl Self-Test");
     if(adxlEl.selfTest()){
-        Serial.println("El ADXL Self-Test Passed"); 
+      Serial.println("El ADXL Self-Test Passed"); 
     }
     else{
       Serial.println("El ADXL Self-Test Failed"); 
@@ -292,7 +289,7 @@ void setup() {
   }
 
   if(InitAzEncoderFlag){
-    azencoder.init();                          // initialize azimuth encoder to communicate using SPI
+    azEncoder.init();                          // initialize azimuth encoder to communicate using SPI
     Serial.println("Az Encoder Initialized");
   }
 
@@ -307,66 +304,85 @@ void loop() {
   
   //check if temp sensors are ready to be read. Read every 1s
   if(eltempcounter >= eltempthreshold){
+
     eltempcounter = 0;
-    
-    if(InitElTempFlag && !El1Errored){
+    int16_t elTempData;
+
+    if(tempSensorEl1.status == TEMPERATURE_OK){
       
       // gets the Elvation motor temperature and checks if sensor is good
-      if(!tempSensorEl1.getTemp()){
-        El1Errored = true;
+      elTempData = tempSensorEl1.getTemp();
+      if(tempSensorEl1.status == TEMPERATURE_ERROR){
         Serial.println("El Temp Senor 1 Stoped Working");
-        El2Errored = false;
-      }
+      }else{
+        tempSensorElBuffer.push(elTempData);
+      }    
 
     }
 
     // if first temp sensor fails then use the second temp sesnor
-    if(InitElTempFlag && El1Errored && !El2Errored){
-
-      if(!tempSensorEl2.getTemp()){ 
-        El2Errored = true;
+    if(tempSensorEl1.status == TEMPERATURE_ERROR && tempSensorEl2.status == TEMPERATURE_OK){
+      
+      // gets the Elvation motor temperature and checks if sensor is good
+      elTempData = tempSensorEl2.getTemp();
+      if(tempSensorEl2.status == TEMPERATURE_ERROR){ 
         Serial.println("El Temp Senor 2 Stoped Working");
-        El1Errored = false;  // try temp sensor 1 again if the second one fails
+      }else{
+        tempSensorElBuffer.push(elTempData);
       }        
     }
-    
   }
-  if(aztempcounter >= aztempthreshold){
-    aztempcounter = aztempoffset;    //add offset so temps are not samples at the same time
 
-    if(!Az1Errored && InitAzTempFlag){
-       // gets the Azmuth motor temperature
-      if(!tempSensorAz1.getTemp()){
-        Az1Errored = true;
+  if(aztempcounter >= aztempthreshold){
+
+    aztempcounter = aztempoffset;    //add offset so temps are not samples at the same time
+    int16_t azTempData;
+
+    if(tempSensorAz1.status == TEMPERATURE_OK){
+      // gets the Azimuth motor temperature and checks if sensor is good
+      azTempData = tempSensorAz1.getTemp();
+      
+      if(tempSensorAz1.status == TEMPERATURE_ERROR){
         Serial.println("Az Temp Senor 1 Stoped Working");
-        Az2Errored = false;
+      }else{
+        tempSensorAzBuffer.push(azTempData);
       }       
     }
-    if(Az1Errored && InitAzTempFlag && !Az2Errored){
-      if(!tempSensorAz2.getTemp()){
-        Az2Errored = true;
+    if(tempSensorAz1.status == TEMPERATURE_ERROR && tempSensorAz2.status == TEMPERATURE_OK){
+      // gets the Azimuth motor temperature and checks if sensor is good
+      azTempData = tempSensorAz2.getTemp();
+
+      if(tempSensorAz2.status == TEMPERATURE_ERROR){
         Serial.println("Az Temp Senor 2 Stoped Working");
-        Az1Errored = false;  // try temp sensor 1 again if the second one fails
+      }else{
+        tempSensorAzBuffer.push(azTempData);
       }           
     }
 
   }
   //check if elevation encoder is ready to be read. Read every 20ms
-  if(encodercounter >= encoderthreshold){//TODO: switch to constant
+  if(encodercounter >= encoderthreshold){
     encodercounter = 0;
     
     if(InitElEncoderFlag){
-      elencoder.procElEnEvent();
+      elEncoder.procElEnEvent();
     }
     if(InitAzEncoderFlag){
-      azencoder.procAzEnEvent();         
+      azEncoder.procAzEnEvent();         
     }
     //Send only the encoder information to the Control Room
-    uint32_t dataSize = calcTransitSize(0, 0, 0, 0, 0, elencoder.buffer.size(), azencoder.buffer.size()); // determine the size of the array that needs to be alocated
+    uint32_t dataSize = calcTransitSize(0, 0, 0, 0, 0, elEncoder.buffer.size(), azEncoder.buffer.size()); // determine the size of the array that needs to be alocated
     uint8_t *dataToSend;
     dataToSend = (uint8_t *)malloc(dataSize * sizeof(uint8_t)); 
+
+    // Sensor status is either okay or errored 
+    uint8_t sensorStatus = (adxlEl.status << 7 | adxlAz.status << 6 | adxlCb.status << 5 | 
+                            tempSensorEl1.status << 4 | tempSensorEl2.status << 3 | tempSensorAz1.status << 2 | tempSensorAz2.status << 1 | azEncoder.status);
+    // Adxl self test plus error codes for temp sensors and Azimuth encoder. First byte has self tests, second has adxl error codes and azimuth error code, third has temp error codes
+    uint32_t sensorErrors = (adxlEl.self_test << 18 | adxlAz.self_test << 17 | adxlCb.self_test << 16 | adxlEl.error_code << 14 | adxlAz.error_code << 12 | adxlCb.error_code << 10 | azEncoder.error_code << 8 |
+                             tempSensorEl1.error_code << 6 | tempSensorEl2.error_code << 4 | tempSensorAz1.error_code << 2 | tempSensorAz2.error_code);
     // Create packet to send to Control Room
-    prepairTransit(dataToSend, dataSize, &emptyAccBuff, &emptyAccBuff, &emptyAccBuff, &emptyBuff, &emptyBuff, &elencoder.buffer, &azencoder.buffer);
+    prepairTransit(dataToSend, dataSize, &emptyAccBuff, &emptyAccBuff, &emptyAccBuff, &emptyBuff, &emptyBuff, &elEncoder.buffer, &azEncoder.buffer, sensorStatus, sensorErrors);
     // Send packet to Control Room
     SendDataToControlRoom(dataToSend, dataSize, ControlRoomIP, TCPPORT, client);
     
@@ -376,18 +392,24 @@ void loop() {
   if(ElAccelEventFlag){
     
     ElAccelEventFlag = false;
+    adxlEl.status = ADXL345_OK;    // if we hit the watermark that means the adxl is collecting samples
+    adxlEl.error_code = ADXL345_NO_ERROR;
     adxlEl.emptyFifo();      // gets the x y and z cordnates and prints them to the serial port.
   }
   
   if(AzAccelEventFlag){
     
     AzAccelEventFlag = false;
+    adxlAz.status = ADXL345_OK;    // if we hit the watermark that means the adxl is collecting samples
+    adxlAz.error_code = ADXL345_NO_ERROR;
     adxlAz.emptyFifo();      // gets the x y and z cordnates and prints them to the serial port.
   }
 
   if(CbAccelEventFlag){
     
     CbAccelEventFlag = false;
+    adxlCb.status = ADXL345_OK;    // if we hit the watermark that means the adxl is collecting samples
+    adxlCb.error_code = ADXL345_NO_ERROR;
     adxlCb.emptyFifo();      // gets the x y and z cordnates and prints them to the serial port.
   }
 
@@ -396,31 +418,61 @@ void loop() {
     ethernetcounter = 0;
     
     // Check if ADXLs stopped working and power cycle them if so
-    if(adxlAz.buffer.size() == 0 && InitAzAccelFlag){
-      digitalWrite(AdxlAzPowerPin, HIGH);
-      delay(10);
-      AzAccelEventFlag = true;
-      Serial.println("Az ADXL reset");
-    }
     if(adxlEl.buffer.size() == 0 && InitElAccelFlag){
-      digitalWrite(AdxlElPowerPin, HIGH);
-      delay(10);
-      ElAccelEventFlag = true; 
-      Serial.println("El ADXL reset");
+      uint8_t numSamples = adxlEl.getSampleBufSize();
+      if(numSamples == 32){
+        Serial.println("El ADXL Watermark missed");
+        adxlEl.error_code = ADXL345_WATERMARK_MISSED;
+        adxlEl.clearAccel(); 
+      }
+      else if (numSamples == 0){
+        Serial.println("No El ADXL Data");
+        adxlEl.error_code = ADXL345_NO_SAMPLES;
+      }
+      adxlEl.status = ADXL345_ERROR;
+      
+    }
+    if(adxlAz.buffer.size() == 0 && InitAzAccelFlag){
+      uint8_t numSamples = adxlAz.getSampleBufSize();
+      if(numSamples == 32){
+        Serial.println("Az ADXL Watermark missed");
+        adxlAz.error_code = ADXL345_WATERMARK_MISSED;
+        adxlAz.clearAccel(); 
+      }
+      else if (numSamples == 0){
+        Serial.println("No Az ADXL Data");
+        adxlAz.error_code = ADXL345_NO_SAMPLES;
+      }
+      adxlAz.status = ADXL345_ERROR;
     }
     if(adxlCb.buffer.size() == 0 && InitCbAccelFlag){
-      digitalWrite(AdxlCbPowerPin, HIGH);
-      delay(10);
-      CbAccelEventFlag = true;  
-      Serial.println("Cb ADXL reset");       
+      uint8_t numSamples = adxlCb.getSampleBufSize();
+      if(numSamples == 32){
+        Serial.println("Cb ADXL Watermark missed");
+        adxlCb.error_code = ADXL345_WATERMARK_MISSED;
+        adxlCb.clearAccel(); 
+      }
+      else if (numSamples == 0){
+        Serial.println("No Cb ADXL Data");
+        adxlCb.error_code = ADXL345_NO_SAMPLES;
+      }
+      adxlCb.status = ADXL345_ERROR;
     }
 
-    uint32_t dataSize = calcTransitSize(adxlEl.buffer.size(), adxlAz.buffer.size(), adxlCb.buffer.size(), tempSensorEl1.buffer.size(), tempSensorAz1.buffer.size(),0,0); // determine the size of the array that needs to be alocated
+    uint32_t dataSize = calcTransitSize(adxlEl.buffer.size(), adxlAz.buffer.size(), adxlCb.buffer.size(), tempSensorElBuffer.size(), tempSensorAzBuffer.size(),0,0); // determine the size of the array that needs to be alocated
     uint8_t *dataToSend;
-    dataToSend = (uint8_t *)malloc(dataSize * sizeof(uint8_t)); //malloc needs to be used becaus stack size on the loop task is about 4k so this needs to go on the heap
+    dataToSend = (uint8_t *)malloc(dataSize * sizeof(uint8_t));
     
-    prepairTransit(dataToSend, dataSize, &adxlEl.buffer, &adxlAz.buffer, &adxlCb.buffer, &tempSensorEl1.buffer, &tempSensorAz1.buffer, &emptyBuff, &emptyBuff);
+    // Sensor status is either okay or errored 
+    uint8_t sensorStatus = (adxlEl.status << 7 | adxlAz.status << 6 | adxlCb.status << 5 | 
+                            tempSensorEl1.status << 4 | tempSensorEl2.status << 3 | tempSensorAz1.status << 2 | tempSensorAz2.status << 1 | azEncoder.status);
+    // Adxl self test plus error codes for temp sensors and Azimuth encoder. First byte has self tests, second has adxl error codes and azimuth error code, third has temp error codes
+    uint32_t sensorErrors = (adxlEl.self_test << 18 | adxlAz.self_test << 17 | adxlCb.self_test << 16 | adxlEl.error_code << 14 | adxlAz.error_code << 12 | adxlCb.error_code << 10 | azEncoder.error_code << 8 |
+                             tempSensorEl1.error_code << 6 | tempSensorEl2.error_code << 4 | tempSensorAz1.error_code << 2 | tempSensorAz2.error_code);
+    
+    prepairTransit(dataToSend, dataSize, &adxlEl.buffer, &adxlAz.buffer, &adxlCb.buffer, &tempSensorElBuffer, &tempSensorAzBuffer, &emptyBuff, &emptyBuff, sensorStatus, sensorErrors);
 
+    // The Control Room has the option to close the server to cause the embeded system to reset
     if(client.connected()){
       SendDataToControlRoom(dataToSend, dataSize, ControlRoomIP, TCPPORT, client);
     }
@@ -429,6 +481,16 @@ void loop() {
     }
 
     free(dataToSend);
+
+    // Reset temp sensors if both fail. There is a possible that they will evently recover
+    if(tempSensorEl1.status == TEMPERATURE_ERROR && tempSensorEl2.status == TEMPERATURE_ERROR){
+      tempSensorEl1.status = TEMPERATURE_OK;
+      tempSensorEl2.status = TEMPERATURE_OK;
+    }
+    if(tempSensorAz1.status == TEMPERATURE_ERROR && tempSensorAz2.status == TEMPERATURE_ERROR){
+      tempSensorAz1.status = TEMPERATURE_OK;
+      tempSensorAz2.status = TEMPERATURE_OK;
+    }
 
     wdog1.feed(); //reset watchdog
     HeartBeatLED = !HeartBeatLED;

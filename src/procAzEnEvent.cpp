@@ -6,7 +6,8 @@ const int zeroReset = 21;       //pin for the zeroReset wire
 const int zeroSet = 20;         //pin for the zeroSet wire
 
 AzimuthEncoder::AzimuthEncoder(){
-    
+    status = AZ_ENCODER_OK;
+    error_code = AZ_ENCODER_NO_ERROR;
 }
 
 
@@ -80,6 +81,8 @@ void AzimuthEncoder::procAzEnEvent() {
   //check valid flag
   dataValid = buff[2] >> 7;
   if (dataValid == false) {
+      status = AZ_ENCODER_ERROR;
+      error_code = AZ_ENCODER_BAD_DATA;
       Serial.println("BAD DATA, NOT VALID");
   }
 
@@ -92,6 +95,8 @@ void AzimuthEncoder::procAzEnEvent() {
 
   dataStale = buff[5] >> 7;
   if (dataStale == true) {
+      status = AZ_ENCODER_ERROR;
+      error_code = AZ_ENCODER_STALE_DATA;
       Serial.println("STALE DATA");
   }
   
@@ -104,6 +109,8 @@ void AzimuthEncoder::procAzEnEvent() {
   if(dataValid == true){
       // Serial.print("Raw angle: ");
       // Serial.println(angleRaw);
+      status = AZ_ENCODER_OK;
+      error_code = AZ_ENCODER_NO_ERROR;
       buffer.push(angleRaw);
 
   }
