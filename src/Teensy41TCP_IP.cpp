@@ -55,7 +55,7 @@ void prepairTransit(uint8_t *reply, uint32_t dataSize, std::queue <acc> *AccElBu
     // Sensor Statuses
     reply[5] = sensorStatuses;
     // Sensor Error Codes
-    reply[6] = (sensorErrors & 0x00ff0000) >> 16;
+    reply[6] = (sensorErrors & 0x00ff0000) >> 16;   
     reply[7] = (sensorErrors & 0x0000ff00) >> 8;
     reply[8] = sensorErrors & 0x000000ff;
     // Elvation ADXL data size

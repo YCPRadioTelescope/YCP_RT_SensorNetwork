@@ -7,7 +7,7 @@
 // Initilize the watchdog timer
 void WatchDog::init() {
   WDOG1_WMCR = 0;   // disable power down PDE
-  uint8_t wt = 2;  //  ~1.5 sec reset timeout
+  uint8_t wt = 5;  //  ~1.5 sec reset timeout
   WDOG1_WCR |=  (wt << 8) | WDOG_WCR_WDE | WDOG_WCR_WDT | WDOG_WCR_SRE;
 }
 

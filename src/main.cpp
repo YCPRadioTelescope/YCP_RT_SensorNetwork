@@ -6,15 +6,20 @@
 #include "ADXL345_Accelerometer.hpp"
 #include "procElEnEvent.h"
 #include "procAzEnEvent.h"
+#include "DHT.h"
 #include "WatchDog.hpp"
 #include <NativeEthernet.h>
 #include <queue>
 #include <NativeEthernet.h>
 
+#include <iostream>
+#include <fstream>
+
 #define TempEl1Pin 0
 #define TempEl2Pin 1
 #define TempAz1Pin 2
 #define TempAz2Pin 3
+#define TempElMount 14
 #define AdxlElIntPin 7
 #define AdxlAzIntPin 8
 #define AdxlCbIntPin 9
@@ -28,6 +33,9 @@
 
 #define TCPPORT 1600  
 #define CRPORT 1680   //Control Room Port
+
+using namespace std; //temp
+
 // Create an IntervalTimer object 
 IntervalTimer myTimer;
 
@@ -38,6 +46,7 @@ TemperatureSensor tempSensorEl1(TempEl1Pin);
 TemperatureSensor tempSensorEl2(TempEl2Pin);
 TemperatureSensor tempSensorAz1(TempAz1Pin);
 TemperatureSensor tempSensorAz2(TempAz2Pin);
+DHT elmounttemp(TempElMount, DHT22);
 ADXL345 adxlEl = ADXL345(Wire);
 ADXL345 adxlAz = ADXL345(Wire1);
 ADXL345 adxlCb = ADXL345(Wire2);
@@ -90,15 +99,20 @@ bool CbAccelEventFlag = false;
 // counters for each clock driven interrupt
 int ethernetcounter = 0;
 int eltempcounter = 0;
+int elmounttempcounter = 0;
 int aztempcounter = 0;    
 int encodercounter = 0;
+static int dhtDataCollectionTimer = 1;
 
 // Time threshold for each clock driven interrupt
-int aztempoffset = 500; // offset so temp sensors don't sample at the dame time
+int aztempoffset = 250;      // Offset so temp sensors don't sample at the same time
+int elmounttempoffset = 500; // Offset for elevation DHT22 ambient temperature/humidity sensor
 int ethernetthreshold = 250;
 int eltempthreshold = 1000;
 int aztempthreshold = 1000 + aztempoffset;
+int elmounttempthreshold = 1000 + elmounttempoffset;
 int encoderthreshold = 20;
+
 // Timer interrupt
 void TimerEvent_ISR(){
   //increment each clock event counter by 1
@@ -114,6 +128,8 @@ void TimerEvent_ISR(){
   }
 
   ethernetcounter++;
+
+  elmounttempcounter++;     //TEMPORARY IMPLEMENTATIONS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   
 }
 
@@ -185,7 +201,7 @@ void setup() {
   Serial.println("Client found");
   digitalWrite(LED4, LOW);  // Turn on LED4 to show connection to Control Room
 
-  wdog1.init();   // ~1.5s watchdog timeout
+  //wdog1.init();   // ~1.5s watchdog timeout
 
   // Read the configuration packet
   size_t bytes = controlRoomClient.available();
@@ -208,6 +224,10 @@ void setup() {
   delay(2);
   // close the connection:
   controlRoomClient.stop();
+
+
+  elmounttemp.begin();
+
 
   // Setup ADXLs
   pinMode(AdxlElPowerPin, OUTPUT);
@@ -295,8 +315,9 @@ void setup() {
 
   myTimer.begin(TimerEvent_ISR, TIMER_1MS);  // TimerEvent to run every millisecond
   
-  wdog1.feed(); //reset watchdog
-  
+ // wdog1.feed(); //reset watchdog
+
+
 }
 
 // This is the super loop where we will be keeping track of counters, setting eventflags and calling proccess base on if any event flags were set
@@ -360,6 +381,46 @@ void loop() {
     }
 
   }
+
+  if(elmounttempcounter >= elmounttempthreshold){
+    elmounttempcounter = 0;
+    float elMountTempData;
+    float elMountHumData;
+
+    elMountTempData = elmounttemp.readTemperature(true);
+    elMountHumData = elmounttemp.readHumidity();
+
+    //ofstream dhtTempFile ("azMountTemp.txt");
+    //ofstream dhtHumFile ("azMountHum.txt");
+    Serial.print("DHT22 Sample Number: ");
+    Serial.println(dhtDataCollectionTimer);
+    dhtDataCollectionTimer++;
+    
+    if(isnan(elMountTempData)){
+      Serial.println("DHT22 Sensor Error: Temperature cannot be found");
+    }
+    else if(elMountTempData < -40 | elMountTempData > 257){
+      Serial.println("DHT22 Sensor Error: Temperature out of range");
+    }
+    else{
+      Serial.print("Temperature: ");
+      Serial.print(elMountTempData);
+      Serial.println(" deg F");
+    }
+
+    if(isnan(elMountHumData)){
+      Serial.println("DHT22 Sensor Error: Humidity cannot be found");
+    }
+    else if(elMountHumData < 0 | elMountHumData > 100){
+      Serial.println("DHT22 Sensor Error: Humidity out of range");
+    }
+    else{
+      Serial.print("Humidity: ");
+      Serial.print(elMountHumData);
+      Serial.println("%");
+    }
+  }
+
   //check if elevation encoder is ready to be read. Read every 20ms
   if(encodercounter >= encoderthreshold){
     encodercounter = 0;
@@ -477,12 +538,13 @@ void loop() {
       SendDataToControlRoom(dataToSend, dataSize, ControlRoomIP, TCPPORT, client);
     }
     else{
+      Serial.println("Software Reset");
       SCB_AIRCR = 0x05FA0004;  // does a software reset
     }
 
     free(dataToSend);
 
-    // Reset temp sensors if both fail. There is a possible that they will evently recover
+    // Reset temp sensors if both fail. There is a possible that they will eventually recover
     if(tempSensorEl1.status == TEMPERATURE_ERROR && tempSensorEl2.status == TEMPERATURE_ERROR){
       tempSensorEl1.status = TEMPERATURE_OK;
       tempSensorEl2.status = TEMPERATURE_OK;
