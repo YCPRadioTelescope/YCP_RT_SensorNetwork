@@ -113,6 +113,11 @@ int aztempthreshold = 1000 + aztempoffset;
 int elmounttempthreshold = 1000 + elmounttempoffset;
 int encoderthreshold = 20;
 
+// XYZ offsets for accelerometer calibration
+byte cbAccelXOffset = -1;
+byte cbAccelYOffset = -4;
+byte cbAccelZOffset = 4;
+
 // Timer interrupt
 void TimerEvent_ISR(){
   //increment each clock event counter by 1
@@ -286,7 +291,7 @@ void setup() {
   if(InitCbAccelFlag){
     digitalWrite(AdxlCbPowerPin, HIGH);
     delay(10);
-    adxlCb.init();                               // initialize an ADXL345 to communicate using I2C
+    adxlCb.init(ADXL345_BW_50, cbAccelXOffset, cbAccelYOffset, cbAccelZOffset); // initialize an ADXL345 to communicate using I2C
     Serial.println();
     Serial.println("Cb Adxl Initialized");
     Serial.println("Starting Cb ADXL Self-Test");

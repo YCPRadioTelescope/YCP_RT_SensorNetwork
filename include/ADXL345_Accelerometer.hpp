@@ -188,6 +188,7 @@ public:
 	
 	bool selfTest();
     void init();
+    void init(byte samplingRate, byte xOff, byte yOff, byte zOff);
     void emptyFifo();
 	void powerCycle(uint8_t pinNumber);
 
