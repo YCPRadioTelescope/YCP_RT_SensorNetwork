@@ -364,6 +364,8 @@ void ADXL345::emptyFifo(uint64_t timeCaptured){
 	dump.timeCaptured = timeCaptured;
 	data_size += 8; // Increase data size for new time captured
 
+	data_size += 2; // Increase data size for the length of the dump
+
 	uint8_t fifolength = 0;
 	readFromI2C(ADXL345_FIFO_STATUS,1, &fifolength);
 	fifolength = fifolength & (uint8_t)0b00111111;		//get the number of data values stored in FIFO
