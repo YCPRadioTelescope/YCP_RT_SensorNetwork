@@ -189,7 +189,7 @@ public:
 	bool selfTest();
     void init();
     void init(byte samplingRate, byte xOff, byte yOff, byte zOff);
-    void emptyFifo();
+    void emptyFifo(uint64_t timeCaptured);
 	void powerCycle(uint8_t pinNumber);
 
 	void powerOn();

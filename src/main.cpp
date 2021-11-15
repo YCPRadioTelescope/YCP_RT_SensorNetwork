@@ -11,6 +11,7 @@
 #include <NativeEthernet.h>
 #include <queue>
 #include <NativeEthernet.h>
+#include <TimeLib.h>
 
 #include <iostream>
 #include <fstream>
@@ -104,6 +105,13 @@ int aztempcounter = 0;
 int encodercounter = 0;
 static int dhtDataCollectionTimer = 1;
 
+// Keeps track of the UTC ms
+uint64_t UTCms = 0;
+
+uint64_t elAccelTimeStamp = 0;
+uint64_t azAccelTimeStamp = 0;
+uint64_t cbAccelTimeStamp = 0;
+
 // Time threshold for each clock driven interrupt
 int aztempoffset = 250;      // Offset so temp sensors don't sample at the same time
 int elmounttempoffset = 500; // Offset for elevation DHT22 ambient temperature/humidity sensor
@@ -136,21 +144,23 @@ void TimerEvent_ISR(){
 
   elmounttempcounter++;     //TEMPORARY IMPLEMENTATIONS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   
+  // Count the UTC time
+  UTCms++;
 }
 
 /********************* ISR *********************/
 /* Look for ADXL Interrupts     */
 void ADXLEL_ISR() {
   ElAccelEventFlag = true;
-  
+  elAccelTimeStamp = UTCms;
 }
 void ADXLAZ_ISR() {
   AzAccelEventFlag = true;
-
+  azAccelTimeStamp = UTCms;
 }
 void ADXLCB_ISR() {
   CbAccelEventFlag = true;
-
+  cbAccelTimeStamp = UTCms;
 }
 
 void setup() {
@@ -318,6 +328,9 @@ void setup() {
     Serial.println("Az Encoder Initialized");
   }
 
+  // Get the current time in seconds and convert to ms for starting UTC time
+  UTCms = now() * 1000;
+
   myTimer.begin(TimerEvent_ISR, TIMER_1MS);  // TimerEvent to run every millisecond
   
  // wdog1.feed(); //reset watchdog
@@ -460,7 +473,7 @@ void loop() {
     ElAccelEventFlag = false;
     adxlEl.status = ADXL345_OK;    // if we hit the watermark that means the adxl is collecting samples
     adxlEl.error_code = ADXL345_NO_ERROR;
-    adxlEl.emptyFifo();      // gets the x y and z cordnates and prints them to the serial port.
+    adxlEl.emptyFifo(elAccelTimeStamp);      // gets the x y and z cordnates and prints them to the serial port.
   }
   
   if(AzAccelEventFlag){
@@ -468,7 +481,7 @@ void loop() {
     AzAccelEventFlag = false;
     adxlAz.status = ADXL345_OK;    // if we hit the watermark that means the adxl is collecting samples
     adxlAz.error_code = ADXL345_NO_ERROR;
-    adxlAz.emptyFifo();      // gets the x y and z cordnates and prints them to the serial port.
+    adxlAz.emptyFifo(azAccelTimeStamp);      // gets the x y and z cordnates and prints them to the serial port.
   }
 
   if(CbAccelEventFlag){
@@ -476,7 +489,7 @@ void loop() {
     CbAccelEventFlag = false;
     adxlCb.status = ADXL345_OK;    // if we hit the watermark that means the adxl is collecting samples
     adxlCb.error_code = ADXL345_NO_ERROR;
-    adxlCb.emptyFifo();      // gets the x y and z cordnates and prints them to the serial port.
+    adxlCb.emptyFifo(cbAccelTimeStamp);      // gets the x y and z cordnates and prints them to the serial port.
   }
 
   // Send all sensor data except encoder

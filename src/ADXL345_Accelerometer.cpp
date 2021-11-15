@@ -352,7 +352,7 @@ void ADXL345::printFIFO_CTL(){
 }
 /****************** MAIN CODE ******************/
 /* Accelerometer Readings */
-void ADXL345::emptyFifo(){
+void ADXL345::emptyFifo(uint64_t timeCaptured){
 	//unsigned long start = 0; // the time the delay started
 	//start = millis();
 	int x,y,z;   
