@@ -130,6 +130,9 @@ void prepairTransit(uint8_t *reply, uint32_t dataSize, std::queue <accDump> *Acc
         reply[i++] = (currentDump.timeCaptured & 0x000000000000ff00) >> 8;
         reply[i++] = (currentDump.timeCaptured & 0x00000000000000ff);
 
+        reply[i++] = (currentDump.accelData.size() & 0xff00) >> 8;
+        reply[i++] = (currentDump.accelData.size() & 0x00ff);
+
         // Send accel data
         for (uint32_t k = 0; k < currentDump.accelData.size(); k++) {
             acc currentAcc = currentDump.accelData.front();
@@ -158,6 +161,9 @@ void prepairTransit(uint8_t *reply, uint32_t dataSize, std::queue <accDump> *Acc
         reply[i++] = (currentDump.timeCaptured & 0x000000000000ff00) >> 8;
         reply[i++] = (currentDump.timeCaptured & 0x00000000000000ff);
 
+        reply[i++] = (currentDump.accelData.size() & 0xff00) >> 8;
+        reply[i++] = (currentDump.accelData.size() & 0x00ff);
+
         // Send accel data
         for (uint32_t k = 0; k < currentDump.accelData.size(); k++) {
             acc currentAcc = currentDump.accelData.front();
@@ -185,6 +191,9 @@ void prepairTransit(uint8_t *reply, uint32_t dataSize, std::queue <accDump> *Acc
         reply[i++] = (currentDump.timeCaptured & 0x0000000000ff0000) >> 16;
         reply[i++] = (currentDump.timeCaptured & 0x000000000000ff00) >> 8;
         reply[i++] = (currentDump.timeCaptured & 0x00000000000000ff);
+
+        reply[i++] = (currentDump.accelData.size() & 0xff00) >> 8;
+        reply[i++] = (currentDump.accelData.size() & 0x00ff);
 
         // Send accel data
         for (uint32_t k = 0; k < currentDump.accelData.size(); k++) {
