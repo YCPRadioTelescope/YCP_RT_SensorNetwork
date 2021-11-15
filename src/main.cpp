@@ -73,7 +73,7 @@ std::queue <int16_t> tempSensorElBuffer;
 std::queue <int16_t> tempSensorAzBuffer;
 
 std::queue <int16_t> emptyBuff;
-std::queue <acc> emptyAccBuff;
+std::queue <accDump> emptyAccBuff;
 
 // Time for timmer interrupt
 int const TIMER_1MS = 1000;
@@ -538,7 +538,13 @@ void loop() {
       adxlCb.status = ADXL345_ERROR;
     }
 
-    uint32_t dataSize = calcTransitSize(adxlEl.buffer.size(), adxlAz.buffer.size(), adxlCb.buffer.size(), tempSensorElBuffer.size(), tempSensorAzBuffer.size(),0,0); // determine the size of the array that needs to be alocated
+    uint32_t dataSize = calcTransitSize(adxlEl.data_size, adxlAz.data_size, adxlCb.data_size, tempSensorElBuffer.size(), tempSensorAzBuffer.size(),0,0); // determine the size of the array that needs to be alocated
+    
+    // Clear accelerometer data sizes
+    adxlEl.data_size = 0;
+    adxlAz.data_size = 0;
+    adxlCb.data_size = 0;
+
     uint8_t *dataToSend;
     dataToSend = (uint8_t *)malloc(dataSize * sizeof(uint8_t));
     

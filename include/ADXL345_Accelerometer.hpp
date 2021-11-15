@@ -173,6 +173,11 @@ struct acc
     int z;
 };
 
+struct accDump 
+{
+	uint64_t timeCaptured;
+	std::queue<acc> accelData;
+};
 
 class ADXL345
 {
@@ -180,9 +185,10 @@ public:
 	bool status;					// Set When Error Exists 
 	byte error_code;
 	bool self_test;					// True if self-test passed
-	std::queue <acc> buffer;		// queue of acc buffers. This caused some references to be undefined in linker
+	std::queue <accDump> buffer;	// queue of accDumos. This caused some references to be undefined in linker
 	double gains[3];				// Counts to Gs
 	int wirenumber;
+	uint16_t data_size = 0;			// Bytes accel data and time stamps take up
 	
 	ADXL345(TwoWire& wire);
 	

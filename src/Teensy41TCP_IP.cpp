@@ -18,9 +18,9 @@ void SendDataToControlRoom(uint8_t *buff, size_t buffSize, IPAddress controlRoom
 uint32_t calcTransitSize(int16_t Acc0Size, int16_t Acc1Size, int16_t Acc2Size, int16_t Temp1Size, int16_t Temp2Size,int16_t ElEnSize,int16_t AzEnSize)
 {
     uint32_t length = 1 + 4 + 14 + 1 + 3; //identifier + total data length + [16|ACCcount0,16|ACCcount1 ,16|ACCcount2,16|tmp1Count,16|Etmp2Count],16|Elencount|,16|Azencount|] + Status + Error Codes
-    length += (Acc0Size * 6);
-    length += (Acc1Size * 6);
-    length += (Acc2Size * 6);
+    length += Acc0Size;
+    length += Acc1Size;
+    length += Acc2Size;
     length += (Temp1Size * 2);
     length += (Temp2Size * 2);
     length += (ElEnSize * 2);
@@ -35,8 +35,15 @@ struct acc
     int y;
     int z;
 };
-void prepairTransit(uint8_t *reply, uint32_t dataSize, std::queue <acc> *AccElBuffer, std::queue <acc> *AccAzBuffer,
-                     std::queue <acc> *AccCbBuffer, std::queue <int16_t> *TempElBuffer, std::queue <int16_t> *TempAzBuffer,
+
+struct accDump 
+{
+	uint64_t timeCaptured;
+	std::queue<acc> accelData;
+};
+
+void prepairTransit(uint8_t *reply, uint32_t dataSize, std::queue <accDump> *AccElBuffer, std::queue <accDump> *AccAzBuffer,
+                     std::queue <accDump> *AccCbBuffer, std::queue <int16_t> *TempElBuffer, std::queue <int16_t> *TempAzBuffer,
                       std::queue <int16_t> *ElEnBuffer, std::queue <int16_t> *AzEnBuffer, uint8_t sensorStatuses, uint32_t sensorErrors)
 {
   
@@ -111,37 +118,85 @@ void prepairTransit(uint8_t *reply, uint32_t dataSize, std::queue <acc> *AccElBu
     // Elvation ADXL data
     for (uint32_t j = 0; j < accElBufSize; j++)
     {
-        acc current = AccElBuffer->front();
-        reply[i++] = (current.x & 0xff00) >> 8;
-        reply[i++] = (current.x & 0x00ff);
-        reply[i++] = (current.y & 0xff00) >> 8;
-        reply[i++] = (current.y & 0x00ff);
-        reply[i++] = (current.z & 0xff00) >> 8;
-        reply[i++] = (current.z & 0x00ff);
+        accDump currentDump = AccElBuffer->front();
+
+        // Send time captured
+        reply[i++] = (currentDump.timeCaptured & 0xff00000000000000) >> 56;
+        reply[i++] = (currentDump.timeCaptured & 0x00ff000000000000) >> 48;
+        reply[i++] = (currentDump.timeCaptured & 0x0000ff0000000000) >> 40;
+        reply[i++] = (currentDump.timeCaptured & 0x000000ff00000000) >> 32;
+        reply[i++] = (currentDump.timeCaptured & 0x00000000ff000000) >> 24;
+        reply[i++] = (currentDump.timeCaptured & 0x0000000000ff0000) >> 16;
+        reply[i++] = (currentDump.timeCaptured & 0x000000000000ff00) >> 8;
+        reply[i++] = (currentDump.timeCaptured & 0x00000000000000ff);
+
+        // Send accel data
+        for (uint32_t k = 0; k < currentDump.accelData.size(); k++) {
+            acc currentAcc = currentDump.accelData.front();
+            reply[i++] = (currentAcc.x & 0xff00) >> 8;
+            reply[i++] = (currentAcc.x & 0x00ff);
+            reply[i++] = (currentAcc.y & 0xff00) >> 8;
+            reply[i++] = (currentAcc.y & 0x00ff);
+            reply[i++] = (currentAcc.z & 0xff00) >> 8;
+            reply[i++] = (currentAcc.z & 0x00ff);
+            currentDump.accelData.pop();
+        }
         AccElBuffer->pop();
     }
     // Azimuth ADXL data
     for (uint32_t j = 0; j < accAzBufSize; j++)
     {
-        acc current = AccAzBuffer->front();
-        reply[i++] = (current.x & 0xff00) >> 8;
-        reply[i++] = (current.x & 0x00ff);
-        reply[i++] = (current.y & 0xff00) >> 8;
-        reply[i++] = (current.y & 0x00ff);
-        reply[i++] = (current.z & 0xff00) >> 8;
-        reply[i++] = (current.z & 0x00ff);
+        accDump currentDump = AccAzBuffer->front();
+
+        // Send time captured
+        reply[i++] = (currentDump.timeCaptured & 0xff00000000000000) >> 56;
+        reply[i++] = (currentDump.timeCaptured & 0x00ff000000000000) >> 48;
+        reply[i++] = (currentDump.timeCaptured & 0x0000ff0000000000) >> 40;
+        reply[i++] = (currentDump.timeCaptured & 0x000000ff00000000) >> 32;
+        reply[i++] = (currentDump.timeCaptured & 0x00000000ff000000) >> 24;
+        reply[i++] = (currentDump.timeCaptured & 0x0000000000ff0000) >> 16;
+        reply[i++] = (currentDump.timeCaptured & 0x000000000000ff00) >> 8;
+        reply[i++] = (currentDump.timeCaptured & 0x00000000000000ff);
+
+        // Send accel data
+        for (uint32_t k = 0; k < currentDump.accelData.size(); k++) {
+            acc currentAcc = currentDump.accelData.front();
+            reply[i++] = (currentAcc.x & 0xff00) >> 8;
+            reply[i++] = (currentAcc.x & 0x00ff);
+            reply[i++] = (currentAcc.y & 0xff00) >> 8;
+            reply[i++] = (currentAcc.y & 0x00ff);
+            reply[i++] = (currentAcc.z & 0xff00) >> 8;
+            reply[i++] = (currentAcc.z & 0x00ff);
+            currentDump.accelData.pop();
+        }
         AccAzBuffer->pop();
     }
     // Counter Balance ADXL data
     for (uint32_t j = 0; j < accCbBufSize; j++)
     {
-        acc current = AccCbBuffer->front();
-        reply[i++] = (current.x & 0xff00) >> 8;
-        reply[i++] = (current.x & 0x00ff);
-        reply[i++] = (current.y & 0xff00) >> 8;
-        reply[i++] = (current.y & 0x00ff);
-        reply[i++] = (current.z & 0xff00) >> 8;
-        reply[i++] = (current.z & 0x00ff);
+        accDump currentDump = AccCbBuffer->front();
+
+        // Send time captured
+        reply[i++] = (currentDump.timeCaptured & 0xff00000000000000) >> 56;
+        reply[i++] = (currentDump.timeCaptured & 0x00ff000000000000) >> 48;
+        reply[i++] = (currentDump.timeCaptured & 0x0000ff0000000000) >> 40;
+        reply[i++] = (currentDump.timeCaptured & 0x000000ff00000000) >> 32;
+        reply[i++] = (currentDump.timeCaptured & 0x00000000ff000000) >> 24;
+        reply[i++] = (currentDump.timeCaptured & 0x0000000000ff0000) >> 16;
+        reply[i++] = (currentDump.timeCaptured & 0x000000000000ff00) >> 8;
+        reply[i++] = (currentDump.timeCaptured & 0x00000000000000ff);
+
+        // Send accel data
+        for (uint32_t k = 0; k < currentDump.accelData.size(); k++) {
+            acc currentAcc = currentDump.accelData.front();
+            reply[i++] = (currentAcc.x & 0xff00) >> 8;
+            reply[i++] = (currentAcc.x & 0x00ff);
+            reply[i++] = (currentAcc.y & 0xff00) >> 8;
+            reply[i++] = (currentAcc.y & 0x00ff);
+            reply[i++] = (currentAcc.z & 0xff00) >> 8;
+            reply[i++] = (currentAcc.z & 0x00ff);
+            currentDump.accelData.pop();
+        }
         AccCbBuffer->pop();
     }
     // Elvation Temperature data
