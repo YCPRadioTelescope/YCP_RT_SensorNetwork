@@ -105,8 +105,8 @@ int aztempcounter = 0;
 int encodercounter = 0;
 static int dhtDataCollectionTimer = 1;
 
-// Keeps track of the UTC ms
-uint64_t UTCms = 0;
+// Keeps track of the ms passed since control room connection
+uint64_t connectionTimeElapsed = 0;
 
 uint64_t elAccelTimeStamp = 0;
 uint64_t azAccelTimeStamp = 0;
@@ -144,23 +144,23 @@ void TimerEvent_ISR(){
 
   elmounttempcounter++;     //TEMPORARY IMPLEMENTATIONS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   
-  // Count the UTC time
-  UTCms++;
+  // Increment the time elapsed
+  connectionTimeElapsed++;
 }
 
 /********************* ISR *********************/
 /* Look for ADXL Interrupts     */
 void ADXLEL_ISR() {
   ElAccelEventFlag = true;
-  elAccelTimeStamp = UTCms;
+  elAccelTimeStamp = connectionTimeElapsed;
 }
 void ADXLAZ_ISR() {
   AzAccelEventFlag = true;
-  azAccelTimeStamp = UTCms;
+  azAccelTimeStamp = connectionTimeElapsed;
 }
 void ADXLCB_ISR() {
   CbAccelEventFlag = true;
-  cbAccelTimeStamp = UTCms;
+  cbAccelTimeStamp = connectionTimeElapsed;
 }
 
 void setup() {
@@ -327,9 +327,6 @@ void setup() {
     azEncoder.init();                          // initialize azimuth encoder to communicate using SPI
     Serial.println("Az Encoder Initialized");
   }
-
-  // Get the current time in seconds and convert to ms for starting UTC time
-  UTCms = now() * 1000;
 
   myTimer.begin(TimerEvent_ISR, TIMER_1MS);  // TimerEvent to run every millisecond
   
