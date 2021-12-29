@@ -361,15 +361,11 @@ void ADXL345::emptyFifo(uint64_t timeCaptured){
 
 	// Store the time captured for the acceleration dump
 	struct accDump dump;
-	dump.timeCaptured = timeCaptured;
-	data_size += 8; // Increase data size for new time captured
-
-	data_size += 2; // Increase data size for the length of the dump
 
 	uint8_t fifolength = 0;
 	readFromI2C(ADXL345_FIFO_STATUS,1, &fifolength);
 	fifolength = fifolength & (uint8_t)0b00111111;		//get the number of data values stored in FIFO
-	data_size += fifolength * 6;	// Increase data size to account for accel data
+	
 	//Serial.print("Buffer Size = ");
 	//Serial.println(fifolength);
 	for(int i =0; i < fifolength; i++){  
@@ -385,7 +381,17 @@ void ADXL345::emptyFifo(uint64_t timeCaptured){
 		//Serial.println(z); 
 	}
 
-	buffer.push(dump);
+	// Only push the dump and increase the data size if we successfully retrieved data from the ADXL
+	if (dump.accelData.size() > 0) {
+		dump.timeCaptured = timeCaptured;
+		data_size += 8; // Increase data size for new time captured
+
+		data_size += 2; // Increase data size for the length of the dump
+		data_size += dump.accelData.size() * 6;	// Increase data size to account for accel data
+
+		buffer.push(dump);
+	}
+	
 	//Serial.print("Finished in ");
 	//Serial.println(millis() - start);
 	//Serial.println(accelwire.);
