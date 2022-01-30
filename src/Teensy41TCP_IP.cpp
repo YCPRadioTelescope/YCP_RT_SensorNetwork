@@ -42,41 +42,43 @@ struct accDump
 	std::queue<acc> accelData;
 };
 
-void encodeAdxlData(uint8_t *reply, uint32_t *i, std::queue <accDump> *AccBuffer)
+uint32_t encodeAdxlData(uint8_t *reply, uint32_t i, std::queue <accDump> *AccBuffer)
 {
-    for (uint32_t j = 0; j < AccBuffer->size(); j++)
+    int numDumps = AccBuffer->size();
+    for (uint32_t j = 0; j < numDumps; j++)
     {
         accDump currentDump = AccBuffer->front();
 
         // Send time captured
-        reply[*i++] = (currentDump.timeCaptured & 0xff00000000000000) >> 56;
-        reply[*i++] = (currentDump.timeCaptured & 0x00ff000000000000) >> 48;
-        reply[*i++] = (currentDump.timeCaptured & 0x0000ff0000000000) >> 40;
-        reply[*i++] = (currentDump.timeCaptured & 0x000000ff00000000) >> 32;
-        reply[*i++] = (currentDump.timeCaptured & 0x00000000ff000000) >> 24;
-        reply[*i++] = (currentDump.timeCaptured & 0x0000000000ff0000) >> 16;
-        reply[*i++] = (currentDump.timeCaptured & 0x000000000000ff00) >> 8;
-        reply[*i++] = (currentDump.timeCaptured & 0x00000000000000ff);
+        reply[i++] = (currentDump.timeCaptured & 0xff00000000000000) >> 56;
+        reply[i++] = (currentDump.timeCaptured & 0x00ff000000000000) >> 48;
+        reply[i++] = (currentDump.timeCaptured & 0x0000ff0000000000) >> 40;
+        reply[i++] = (currentDump.timeCaptured & 0x000000ff00000000) >> 32;
+        reply[i++] = (currentDump.timeCaptured & 0x00000000ff000000) >> 24;
+        reply[i++] = (currentDump.timeCaptured & 0x0000000000ff0000) >> 16;
+        reply[i++] = (currentDump.timeCaptured & 0x000000000000ff00) >> 8;
+        reply[i++] = (currentDump.timeCaptured & 0x00000000000000ff);
 
         uint32_t dumpSize = currentDump.accelData.size();
 
-        reply[*i++] = (dumpSize & 0xff00) >> 8;
-        reply[*i++] = (dumpSize & 0x00ff);
+        reply[i++] = (dumpSize & 0xff00) >> 8;
+        reply[i++] = (dumpSize & 0x00ff);
 
         // Send accel data
         for (uint32_t k = 0; k < dumpSize; k++)
         {
             acc currentAcc = currentDump.accelData.front();
-            reply[*i++] = (currentAcc.x & 0xff00) >> 8;
-            reply[*i++] = (currentAcc.x & 0x00ff);
-            reply[*i++] = (currentAcc.y & 0xff00) >> 8;
-            reply[*i++] = (currentAcc.y & 0x00ff);
-            reply[*i++] = (currentAcc.z & 0xff00) >> 8;
-            reply[*i++] = (currentAcc.z & 0x00ff);
+            reply[i++] = (currentAcc.x & 0xff00) >> 8;
+            reply[i++] = (currentAcc.x & 0x00ff);
+            reply[i++] = (currentAcc.y & 0xff00) >> 8;
+            reply[i++] = (currentAcc.y & 0x00ff);
+            reply[i++] = (currentAcc.z & 0xff00) >> 8;
+            reply[i++] = (currentAcc.z & 0x00ff);
             currentDump.accelData.pop();
         }
         AccBuffer->pop();
     }
+    return i;
 }
 
 void prepairTransit(uint8_t *reply, uint32_t dataSize, std::queue <accDump> *AccElBuffer, std::queue <accDump> *AccAzBuffer,
@@ -153,13 +155,13 @@ void prepairTransit(uint8_t *reply, uint32_t dataSize, std::queue <accDump> *Acc
 
     i = 23;
     // Elvation ADXL data
-    encodeAdxlData(reply, &i, AccElBuffer);
+    i = encodeAdxlData(reply, i, AccElBuffer);
 
     // Azimuth ADXL data
-    encodeAdxlData(reply, &i, AccAzBuffer);
+    i = encodeAdxlData(reply, i, AccAzBuffer);
 
     // Counter Balance ADXL data
-    encodeAdxlData(reply, &i, AccCbBuffer);
+    i = encodeAdxlData(reply, i, AccCbBuffer);
 
     // Elvation Temperature data
     for (uint32_t j = 0; j < tempElBufSize; j++)
