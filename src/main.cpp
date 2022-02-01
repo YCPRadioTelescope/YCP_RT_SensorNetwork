@@ -11,6 +11,7 @@
 #include <NativeEthernet.h>
 #include <queue>
 #include <NativeEthernet.h>
+#include <TimeLib.h>
 
 #include <iostream>
 #include <fstream>
@@ -72,7 +73,7 @@ std::queue <int16_t> tempSensorElBuffer;
 std::queue <int16_t> tempSensorAzBuffer;
 
 std::queue <int16_t> emptyBuff;
-std::queue <acc> emptyAccBuff;
+std::queue <accDump> emptyAccBuff;
 
 // Time for timmer interrupt
 int const TIMER_1MS = 1000;
@@ -103,6 +104,13 @@ int elmounttempcounter = 0;
 int aztempcounter = 0;    
 int encodercounter = 0;
 static int dhtDataCollectionTimer = 1;
+
+// Keeps track of the ms passed since control room connection
+uint64_t connectionTimeElapsed = 0;
+
+uint64_t elAccelTimeStamp = 0;
+uint64_t azAccelTimeStamp = 0;
+uint64_t cbAccelTimeStamp = 0;
 
 // Time threshold for each clock driven interrupt
 int aztempoffset = 250;      // Offset so temp sensors don't sample at the same time
@@ -136,21 +144,23 @@ void TimerEvent_ISR(){
 
   elmounttempcounter++;     //TEMPORARY IMPLEMENTATIONS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   
+  // Increment the time elapsed
+  connectionTimeElapsed++;
 }
 
 /********************* ISR *********************/
 /* Look for ADXL Interrupts     */
 void ADXLEL_ISR() {
   ElAccelEventFlag = true;
-  
+  elAccelTimeStamp = connectionTimeElapsed;
 }
 void ADXLAZ_ISR() {
   AzAccelEventFlag = true;
-
+  azAccelTimeStamp = connectionTimeElapsed;
 }
 void ADXLCB_ISR() {
   CbAccelEventFlag = true;
-
+  cbAccelTimeStamp = connectionTimeElapsed;
 }
 
 void setup() {
@@ -460,7 +470,7 @@ void loop() {
     ElAccelEventFlag = false;
     adxlEl.status = ADXL345_OK;    // if we hit the watermark that means the adxl is collecting samples
     adxlEl.error_code = ADXL345_NO_ERROR;
-    adxlEl.emptyFifo();      // gets the x y and z cordnates and prints them to the serial port.
+    adxlEl.emptyFifo(elAccelTimeStamp);      // gets the x y and z cordnates and prints them to the serial port.
   }
   
   if(AzAccelEventFlag){
@@ -468,7 +478,7 @@ void loop() {
     AzAccelEventFlag = false;
     adxlAz.status = ADXL345_OK;    // if we hit the watermark that means the adxl is collecting samples
     adxlAz.error_code = ADXL345_NO_ERROR;
-    adxlAz.emptyFifo();      // gets the x y and z cordnates and prints them to the serial port.
+    adxlAz.emptyFifo(azAccelTimeStamp);      // gets the x y and z cordnates and prints them to the serial port.
   }
 
   if(CbAccelEventFlag){
@@ -476,7 +486,7 @@ void loop() {
     CbAccelEventFlag = false;
     adxlCb.status = ADXL345_OK;    // if we hit the watermark that means the adxl is collecting samples
     adxlCb.error_code = ADXL345_NO_ERROR;
-    adxlCb.emptyFifo();      // gets the x y and z cordnates and prints them to the serial port.
+    adxlCb.emptyFifo(cbAccelTimeStamp);      // gets the x y and z cordnates and prints them to the serial port.
   }
 
   // Send all sensor data except encoder
@@ -525,7 +535,13 @@ void loop() {
       adxlCb.status = ADXL345_ERROR;
     }
 
-    uint32_t dataSize = calcTransitSize(adxlEl.buffer.size(), adxlAz.buffer.size(), adxlCb.buffer.size(), tempSensorElBuffer.size(), tempSensorAzBuffer.size(),0,0); // determine the size of the array that needs to be alocated
+    uint32_t dataSize = calcTransitSize(adxlEl.data_size, adxlAz.data_size, adxlCb.data_size, tempSensorElBuffer.size(), tempSensorAzBuffer.size(),0,0); // determine the size of the array that needs to be alocated
+    
+    // Clear accelerometer data sizes
+    adxlEl.data_size = 0;
+    adxlAz.data_size = 0;
+    adxlCb.data_size = 0;
+
     uint8_t *dataToSend;
     dataToSend = (uint8_t *)malloc(dataSize * sizeof(uint8_t));
     
