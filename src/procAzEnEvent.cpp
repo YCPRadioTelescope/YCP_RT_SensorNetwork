@@ -116,8 +116,8 @@ void AzimuthEncoder::procAzEnEvent() {
   }
   
   //print raw angle for debugging
-  //Serial.print("Raw angle: ");
-  //Serial.println(angleRaw);
+  Serial.print("Raw angle: ");
+  Serial.println(angleRaw);
 
   //map the digital count to an angle based off a scaling function, decimal is result of 360/2047
   //angleFinal = .175867 * angleRaw;

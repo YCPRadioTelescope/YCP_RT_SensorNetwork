@@ -95,6 +95,7 @@ bool InitAzEncoderFlag;
 bool InitElAccelFlag;
 bool InitAzAccelFlag;
 bool InitCbAccelFlag;
+bool InitAmbTempFlag;
 
 // Event flags that are check in the main loop to see what processes should be run
 bool ElAccelEventFlag = false;
@@ -140,13 +141,13 @@ void TimerEvent_ISR(){
     aztempcounter++;
   }
   if(InitElEncoderFlag || InitAzEncoderFlag){
-
     encodercounter++;
   }
 
   ethernetcounter++;
-
-  elmounttempcounter++;     //TEMPORARY IMPLEMENTATIONS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  if(InitAmbTempFlag){
+    elmounttempcounter++;
+  }
   
   // Increment the time elapsed
   connectionTimeElapsed++;
@@ -236,6 +237,8 @@ void setup() {
   InitAzAccelFlag = data[4] == 0 ? false : true;
   InitElAccelFlag = data[5] == 0 ? false : true;
   InitCbAccelFlag = data[6] == 0 ? false : true;
+  InitAmbTempFlag = data[7] == 0 ? false : true;
+
 
   // Send acknoledgement to Control Room
   controlRoomClient.write("acknoledge");
@@ -333,6 +336,11 @@ void setup() {
   }
 
   myTimer.begin(TimerEvent_ISR, TIMER_1MS);  // TimerEvent to run every millisecond
+
+  tempSensorAmb.status = TEMPERATURE_NO_ERROR;
+  tempSensorAmb.status = TEMPERATURE_OK;
+  //Temporary initialization to OK for DHT22
+  //Will eventually need to implement test at initialization for DHT22
   
  // wdog1.feed(); //reset watchdog
 
@@ -415,30 +423,21 @@ void loop() {
     Serial.println(dhtDataCollectionTimer);
     dhtDataCollectionTimer++;
     
-    if(isnan(elMountTempData)){
+    if(isnan(elMountTempData) || isnan(elMountHumData) ){
       Serial.println("DHT22 Sensor Error: Temperature cannot be found");
+      tempSensorAmb.error_code = TEMPERATURE_NO_DATA;
+      tempSensorAmb.status = TEMPERATURE_ERROR;
     }
-    else if(elMountTempData < -40 || elMountTempData > 257){
+    else if((elMountTempData < -40 || elMountTempData > 257)||(elMountHumData < 0 || elMountHumData > 100)){
       Serial.println("DHT22 Sensor Error: Temperature out of range");
+      tempSensorAmb.error_code = TEMPERATURE_OUT_OF_RANGE;
+      tempSensorAmb.status = TEMPERATURE_ERROR;
     }
     else{
+      tempSensorAmb.error_code = TEMPERATURE_NO_ERROR;
+      tempSensorAmb.status = TEMPERATURE_OK;
       tempAmbBuffer.push(elMountTempData);
-      Serial.print("Temperature: ");
-      Serial.print(elMountTempData);
-      Serial.println(" deg F");
-    }
-
-    if(isnan(elMountHumData)){
-      Serial.println("DHT22 Sensor Error: Humidity cannot be found");
-    }
-    else if(elMountHumData < 0 || elMountHumData > 100){
-      Serial.println("DHT22 Sensor Error: Humidity out of range");
-    }
-    else{
       humidityAmbBuffer.push(elMountHumData);
-      Serial.print("Humidity: ");
-      Serial.print(elMountHumData);
-      Serial.println("%");
     }
   }
 
