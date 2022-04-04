@@ -21,6 +21,10 @@
 #define TEMPERATURE_OK			1		// No Error
 #define TEMPERATURE_ERROR		0		// Error Exists
 
+#define TEMPERATURE_NO_ERROR	    0		// Initial State
+#define TEMPERATURE_NO_DATA       1     // No sensor data was found
+#define TEMPERATURE_OUT_OF_RANGE  2     // Reading was out of given range
+
 #include "Arduino.h"
 
 /* Uncomment to enable printing out nice debug messages. */
@@ -75,6 +79,8 @@ public:
                          bool isFahrenheit = true);
   float readHumidity(bool force = false);
   bool read(bool force = false);
+  bool status;					// Set When Error Exists 
+  byte error_code;
 
 private:
   uint8_t data[5];

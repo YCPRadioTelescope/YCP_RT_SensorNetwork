@@ -15,9 +15,9 @@ void SendDataToControlRoom(uint8_t *buff, size_t buffSize, IPAddress controlRoom
 }
 
 //retune number of 8 bit chars required to transmit the presented data
-uint32_t calcTransitSize(int16_t Acc0Size, int16_t Acc1Size, int16_t Acc2Size, int16_t Temp1Size, int16_t Temp2Size,int16_t ElEnSize,int16_t AzEnSize)
+uint32_t calcTransitSize(int16_t Acc0Size, int16_t Acc1Size, int16_t Acc2Size, int16_t Temp1Size, int16_t Temp2Size,int16_t ElEnSize,int16_t AzEnSize, int16_t AmbTemp, int16_t AmbHum)
 {
-    uint32_t length = 1 + 4 + 14 + 1 + 3; //identifier + total data length + [16|ACCcount0,16|ACCcount1 ,16|ACCcount2,16|tmp1Count,16|Etmp2Count],16|Elencount|,16|Azencount|] + Status + Error Codes
+    uint32_t length = 1 + 4 + 14 + 2 + 3; //identifier + total data length + [16|ACCcount0,16|ACCcount1 ,16|ACCcount2,16|tmp1Count,16|Etmp2Count],16|Elencount|,16|Azencount|] + Status + Error Codes
     length += Acc0Size;
     length += Acc1Size;
     length += Acc2Size;
@@ -25,6 +25,9 @@ uint32_t calcTransitSize(int16_t Acc0Size, int16_t Acc1Size, int16_t Acc2Size, i
     length += (Temp2Size * 2);
     length += (ElEnSize * 2);
     length += (AzEnSize * 2);
+    length += (AmbTemp*4);
+    length += (AmbHum*4);
+
     
     return length;
 }
@@ -83,7 +86,8 @@ uint32_t encodeAdxlData(uint8_t *reply, uint32_t i, std::queue <accDump> *AccBuf
 
 void prepairTransit(uint8_t *reply, uint32_t dataSize, std::queue <accDump> *AccElBuffer, std::queue <accDump> *AccAzBuffer,
                      std::queue <accDump> *AccCbBuffer, std::queue <int16_t> *TempElBuffer, std::queue <int16_t> *TempAzBuffer,
-                      std::queue <int16_t> *ElEnBuffer, std::queue <int16_t> *AzEnBuffer, uint8_t sensorStatuses, uint32_t sensorErrors)
+                      std::queue <int16_t> *ElEnBuffer, std::queue <int16_t> *AzEnBuffer, std::queue <float> *ambientTempBuffer, std::queue <float> *ambientHumidityBuffer,
+                    uint16_t sensorStatuses, uint32_t sensorErrors)
 {
   
     //[16|ACCcount,16|AZetmpCount,16|ELetmpCount]
@@ -99,61 +103,70 @@ void prepairTransit(uint8_t *reply, uint32_t dataSize, std::queue <accDump> *Acc
     reply[3] = (dataSize & 0x0000ff00) >> 8;
     reply[4] = dataSize & 0x000000ff;
     // Sensor Statuses
-    reply[5] = sensorStatuses;
+    reply[5] = (sensorStatuses & 0xff00) >> 8;
+    reply[6] = (sensorStatuses & 0x00ff);
     // Sensor Error Codes
-    reply[6] = (sensorErrors & 0x00ff0000) >> 16;   
-    reply[7] = (sensorErrors & 0x0000ff00) >> 8;
-    reply[8] = sensorErrors & 0x000000ff;
+    reply[7] = (sensorErrors & 0x00ff0000) >> 16;   
+    reply[8] = (sensorErrors & 0x0000ff00) >> 8;
+    reply[9] = sensorErrors & 0x000000ff;
     // Elvation ADXL data size
     uint32_t accElBufSize = AccElBuffer->size();
-    reply[9] = ((accElBufSize) & 0xff00) >> 8;
-    reply[10] = ((accElBufSize) & 0x00ff);
+    reply[10] = ((accElBufSize) & 0xff00) >> 8;
+    reply[11] = ((accElBufSize) & 0x00ff);
     //Serial.println("AdxlEl size = ");
     //Serial.println(accElBufSize);
 
     // Azimuth ADXL data size
     uint32_t accAzBufSize = AccAzBuffer->size();
-    reply[11] = ((accAzBufSize) & 0xff00) >> 8;
-    reply[12] = ((accAzBufSize) & 0x00ff);
+    reply[12] = ((accAzBufSize) & 0xff00) >> 8;
+    reply[13] = ((accAzBufSize) & 0x00ff);
     //Serial.println("AdxlAz size = ");
     //Serial.println(accAzBufSize);
 
     // Counter Balance ADXL data size
     uint32_t accCbBufSize = AccCbBuffer->size();
-    reply[13] = ((accCbBufSize) & 0xff00) >> 8;
-    reply[14] = ((accCbBufSize) & 0x00ff);
+    reply[14] = ((accCbBufSize) & 0xff00) >> 8;
+    reply[15] = ((accCbBufSize) & 0x00ff);
     //Serial.println("AdxlCb size = ");
     //Serial.println(accCbBufSize);
 
     // Elvation Temperature data size
     uint32_t tempElBufSize = TempElBuffer->size();
-    reply[15] = ((tempElBufSize) & 0xff00) >> 8;
-    reply[16] = ((tempElBufSize ) & 0x00ff);
+    reply[16] = ((tempElBufSize) & 0xff00) >> 8;
+    reply[17] = ((tempElBufSize ) & 0x00ff);
     //Serial.println("TempElBuffer size = ");
     //Serial.println(tempElBufSize);
 
     // Azimuth Temperature data size
     uint32_t tempAzBufSize = TempAzBuffer->size();
-    reply[17] = ((tempAzBufSize) & 0xff00) >> 8;
-    reply[18] = ((tempAzBufSize) & 0x00ff);
+    reply[18] = ((tempAzBufSize) & 0xff00) >> 8;
+    reply[19] = ((tempAzBufSize) & 0x00ff);
     //Serial.println("TempAzBuffer size = ");
     //Serial.println(tempAzBufSize);
 
     // Elvation Encoder data size
     uint32_t elEnBufSize = ElEnBuffer->size();
-    reply[19] = ((elEnBufSize) & 0xff00) >> 8;
-    reply[20] = ((elEnBufSize) & 0x00ff);
+    reply[20] = ((elEnBufSize) & 0xff00) >> 8;
+    reply[21] = ((elEnBufSize) & 0x00ff);
     //Serial.println("elEnBuf size = ");
     //Serial.println(elEnBufSize);
 
     // Azimuth Encoder data size
     uint32_t azEnBufferSize = AzEnBuffer->size();
-    reply[21] = ((azEnBufferSize) & 0xff00) >> 8;
-    reply[22] = ((azEnBufferSize) & 0x00ff);
+    reply[22] = ((azEnBufferSize) & 0xff00) >> 8;
+    reply[23] = ((azEnBufferSize) & 0x00ff);
     //Serial.println("azEnBuf size = ");
     //Serial.println(azEnBufferSize);
 
-    i = 23;
+    uint32_t ambientTempSize = ambientTempBuffer->size();
+    reply[24] = ((ambientTempSize) & 0xff00) >> 8;
+    reply[25] = ((ambientTempSize) & 0x00ff);
+
+    uint32_t ambientHumiditySize = ambientHumidityBuffer->size();
+    reply[26] = ((ambientHumiditySize) & 0xff00) >> 8;
+    reply[27] = ((ambientHumiditySize) & 0x00ff);
+
+    i = 28;
     // Elvation ADXL data
     i = encodeAdxlData(reply, i, AccElBuffer);
 
@@ -194,6 +207,36 @@ void prepairTransit(uint8_t *reply, uint32_t dataSize, std::queue <accDump> *Acc
         reply[i++] = (current & 0xff00) >> 8;
         reply[i++] = (current & 0x00ff);
         AzEnBuffer->pop();
+    }
+
+    for (uint32_t j = 0; j < ambientTempSize; j++)
+    {
+        float current = ambientTempBuffer->front();
+
+        uint8_t bytes[sizeof(float)];
+        *(float*) bytes = current;
+
+        reply[i++] = (bytes[0]);
+        reply[i++] = (bytes[1]);
+        reply[i++] = (bytes[2]);
+        reply[i++] = (bytes[3]);
+
+        ambientTempBuffer->pop();
+    }
+
+    for (uint32_t j = 0; j < ambientHumiditySize; j++)
+    {
+        float current = ambientHumidityBuffer->front();
+
+        uint8_t bytes[sizeof(float)];
+        *(float*) bytes = current;
+
+        reply[i++] = (bytes[0]);
+        reply[i++] = (bytes[1]);
+        reply[i++] = (bytes[2]);
+        reply[i++] = (bytes[3]);
+
+        ambientHumidityBuffer->pop();
     }
     
 }

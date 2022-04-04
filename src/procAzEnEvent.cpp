@@ -66,7 +66,7 @@ void AzimuthEncoder::procAzEnEvent() {
       //Serial.println("here false");
   } else {
       dataGood = true;
-      //Serial.println("here true");
+                          
   }
   if (dataGood == true) {
       //Serial.println("DATA IN 0 BITS, CORRUPT DATA");

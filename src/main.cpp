@@ -47,7 +47,7 @@ TemperatureSensor tempSensorEl1(TempEl1Pin);
 TemperatureSensor tempSensorEl2(TempEl2Pin);
 TemperatureSensor tempSensorAz1(TempAz1Pin);
 TemperatureSensor tempSensorAz2(TempAz2Pin);
-DHT elmounttemp(TempElMount, DHT22);
+DHT tempSensorAmb(TempElMount, DHT22);
 ADXL345 adxlEl = ADXL345(Wire);
 ADXL345 adxlAz = ADXL345(Wire1);
 ADXL345 adxlCb = ADXL345(Wire2);
@@ -72,8 +72,12 @@ EthernetServer server(CRPORT);
 std::queue <int16_t> tempSensorElBuffer;
 std::queue <int16_t> tempSensorAzBuffer;
 
+std::queue <float> tempAmbBuffer;
+std::queue <float> humidityAmbBuffer;
+
 std::queue <int16_t> emptyBuff;
 std::queue <accDump> emptyAccBuff;
+std::queue <float> emptyDhtBuff;
 
 // Time for timmer interrupt
 int const TIMER_1MS = 1000;
@@ -241,7 +245,7 @@ void setup() {
   controlRoomClient.stop();
 
 
-  elmounttemp.begin();
+  tempSensorAmb.begin();
 
 
   // Setup ADXLs
@@ -402,8 +406,8 @@ void loop() {
     float elMountTempData;
     float elMountHumData;
 
-    elMountTempData = elmounttemp.readTemperature(true);
-    elMountHumData = elmounttemp.readHumidity();
+    elMountTempData = tempSensorAmb.readTemperature(true);
+    elMountHumData = tempSensorAmb.readHumidity();
 
     //ofstream dhtTempFile ("azMountTemp.txt");
     //ofstream dhtHumFile ("azMountHum.txt");
@@ -414,7 +418,7 @@ void loop() {
     if(isnan(elMountTempData)){
       Serial.println("DHT22 Sensor Error: Temperature cannot be found");
     }
-    else if(elMountTempData < -40 | elMountTempData > 257){
+    else if(elMountTempData < -40 || elMountTempData > 257){
       Serial.println("DHT22 Sensor Error: Temperature out of range");
     }
     else{
@@ -426,7 +430,7 @@ void loop() {
     if(isnan(elMountHumData)){
       Serial.println("DHT22 Sensor Error: Humidity cannot be found");
     }
-    else if(elMountHumData < 0 | elMountHumData > 100){
+    else if(elMountHumData < 0 || elMountHumData > 100){
       Serial.println("DHT22 Sensor Error: Humidity out of range");
     }
     else{
@@ -447,18 +451,18 @@ void loop() {
       azEncoder.procAzEnEvent();         
     }
     //Send only the encoder information to the Control Room
-    uint32_t dataSize = calcTransitSize(0, 0, 0, 0, 0, elEncoder.buffer.size(), azEncoder.buffer.size()); // determine the size of the array that needs to be alocated
+    uint32_t dataSize = calcTransitSize(0, 0, 0, 0, 0, elEncoder.buffer.size(), azEncoder.buffer.size(), 0, 0); // determine the size of the array that needs to be alocated
     uint8_t *dataToSend;
     dataToSend = (uint8_t *)malloc(dataSize * sizeof(uint8_t)); 
 
     // Sensor status is either okay or errored 
-    uint8_t sensorStatus = (adxlEl.status << 7 | adxlAz.status << 6 | adxlCb.status << 5 | 
+    uint8_t sensorStatus = (tempSensorAmb.status << 8 | adxlEl.status << 7 | adxlAz.status << 6 | adxlCb.status << 5 | 
                             tempSensorEl1.status << 4 | tempSensorEl2.status << 3 | tempSensorAz1.status << 2 | tempSensorAz2.status << 1 | azEncoder.status);
     // Adxl self test plus error codes for temp sensors and Azimuth encoder. First byte has self tests, second has adxl error codes and azimuth error code, third has temp error codes
-    uint32_t sensorErrors = (adxlEl.self_test << 18 | adxlAz.self_test << 17 | adxlCb.self_test << 16 | adxlEl.error_code << 14 | adxlAz.error_code << 12 | adxlCb.error_code << 10 | azEncoder.error_code << 8 |
+    uint32_t sensorErrors = (tempSensorAmb.error_code << 19 | adxlEl.self_test << 18 | adxlAz.self_test << 17 | adxlCb.self_test << 16 | adxlEl.error_code << 14 | adxlAz.error_code << 12 | adxlCb.error_code << 10 | azEncoder.error_code << 8 |
                              tempSensorEl1.error_code << 6 | tempSensorEl2.error_code << 4 | tempSensorAz1.error_code << 2 | tempSensorAz2.error_code);
     // Create packet to send to Control Room
-    prepairTransit(dataToSend, dataSize, &emptyAccBuff, &emptyAccBuff, &emptyAccBuff, &emptyBuff, &emptyBuff, &elEncoder.buffer, &azEncoder.buffer, sensorStatus, sensorErrors);
+    prepairTransit(dataToSend, dataSize, &emptyAccBuff, &emptyAccBuff, &emptyAccBuff, &emptyBuff, &emptyBuff, &elEncoder.buffer, &azEncoder.buffer, &emptyDhtBuff, &emptyDhtBuff, sensorStatus, sensorErrors);
     // Send packet to Control Room
     SendDataToControlRoom(dataToSend, dataSize, ControlRoomIP, TCPPORT, client);
     
@@ -535,7 +539,7 @@ void loop() {
       adxlCb.status = ADXL345_ERROR;
     }
 
-    uint32_t dataSize = calcTransitSize(adxlEl.data_size, adxlAz.data_size, adxlCb.data_size, tempSensorElBuffer.size(), tempSensorAzBuffer.size(),0,0); // determine the size of the array that needs to be alocated
+    uint32_t dataSize = calcTransitSize(adxlEl.data_size, adxlAz.data_size, adxlCb.data_size, tempSensorElBuffer.size(), tempSensorAzBuffer.size(),0,0, tempAmbBuffer.size(), humidityAmbBuffer.size()); // determine the size of the array that needs to be alocated
     
     // Clear accelerometer data sizes
     adxlEl.data_size = 0;
@@ -546,13 +550,13 @@ void loop() {
     dataToSend = (uint8_t *)malloc(dataSize * sizeof(uint8_t));
     
     // Sensor status is either okay or errored 
-    uint8_t sensorStatus = (adxlEl.status << 7 | adxlAz.status << 6 | adxlCb.status << 5 | 
+    uint8_t sensorStatus = (tempSensorAmb.status << 8 | adxlEl.status << 7 | adxlAz.status << 6 | adxlCb.status << 5 | 
                             tempSensorEl1.status << 4 | tempSensorEl2.status << 3 | tempSensorAz1.status << 2 | tempSensorAz2.status << 1 | azEncoder.status);
     // Adxl self test plus error codes for temp sensors and Azimuth encoder. First byte has self tests, second has adxl error codes and azimuth error code, third has temp error codes
-    uint32_t sensorErrors = (adxlEl.self_test << 18 | adxlAz.self_test << 17 | adxlCb.self_test << 16 | adxlEl.error_code << 14 | adxlAz.error_code << 12 | adxlCb.error_code << 10 | azEncoder.error_code << 8 |
+    uint32_t sensorErrors = (tempSensorAmb.error_code << 19 | adxlEl.self_test << 18 | adxlAz.self_test << 17 | adxlCb.self_test << 16 | adxlEl.error_code << 14 | adxlAz.error_code << 12 | adxlCb.error_code << 10 | azEncoder.error_code << 8 |
                              tempSensorEl1.error_code << 6 | tempSensorEl2.error_code << 4 | tempSensorAz1.error_code << 2 | tempSensorAz2.error_code);
     
-    prepairTransit(dataToSend, dataSize, &adxlEl.buffer, &adxlAz.buffer, &adxlCb.buffer, &tempSensorElBuffer, &tempSensorAzBuffer, &emptyBuff, &emptyBuff, sensorStatus, sensorErrors);
+    prepairTransit(dataToSend, dataSize, &adxlEl.buffer, &adxlAz.buffer, &adxlCb.buffer, &tempSensorElBuffer, &tempSensorAzBuffer, &emptyBuff, &emptyBuff, &tempAmbBuffer, &humidityAmbBuffer, sensorStatus, sensorErrors);
 
     // The Control Room has the option to close the server to cause the embeded system to reset
     if(client.connected()){
