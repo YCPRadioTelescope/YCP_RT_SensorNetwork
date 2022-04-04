@@ -422,6 +422,7 @@ void loop() {
       Serial.println("DHT22 Sensor Error: Temperature out of range");
     }
     else{
+      tempAmbBuffer.push(elMountTempData);
       Serial.print("Temperature: ");
       Serial.print(elMountTempData);
       Serial.println(" deg F");
@@ -434,6 +435,7 @@ void loop() {
       Serial.println("DHT22 Sensor Error: Humidity out of range");
     }
     else{
+      humidityAmbBuffer.push(elMountHumData);
       Serial.print("Humidity: ");
       Serial.print(elMountHumData);
       Serial.println("%");

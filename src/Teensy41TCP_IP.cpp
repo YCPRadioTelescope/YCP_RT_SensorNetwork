@@ -17,7 +17,7 @@ void SendDataToControlRoom(uint8_t *buff, size_t buffSize, IPAddress controlRoom
 //retune number of 8 bit chars required to transmit the presented data
 uint32_t calcTransitSize(int16_t Acc0Size, int16_t Acc1Size, int16_t Acc2Size, int16_t Temp1Size, int16_t Temp2Size,int16_t ElEnSize,int16_t AzEnSize, int16_t AmbTemp, int16_t AmbHum)
 {
-    uint32_t length = 1 + 4 + 14 + 2 + 3; //identifier + total data length + [16|ACCcount0,16|ACCcount1 ,16|ACCcount2,16|tmp1Count,16|Etmp2Count],16|Elencount|,16|Azencount|] + Status + Error Codes
+    uint32_t length = 1 + 4 + 18 + 2 + 3; //identifier + total data length + [16|ACCcount0,16|ACCcount1 ,16|ACCcount2,16|tmp1Count,16|Etmp2Count],16|Elencount|,16|Azencount|] + Status + Error Codes
     length += Acc0Size;
     length += Acc1Size;
     length += Acc2Size;
