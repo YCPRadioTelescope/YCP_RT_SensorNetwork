@@ -69,6 +69,11 @@ EthernetClient client;
 //ethernet server
 EthernetServer server(CRPORT);
 
+//size_t bytes;
+//uint8_t *ptr;
+//uint8_t data[];
+EthernetClient controlRoomClient;
+
 std::queue <int16_t> tempSensorElBuffer;
 std::queue <int16_t> tempSensorAzBuffer;
 
@@ -96,6 +101,8 @@ bool InitElAccelFlag;
 bool InitAzAccelFlag;
 bool InitCbAccelFlag;
 bool InitAmbTempFlag;
+
+bool FanCommandFlag;
 
 // Event flags that are check in the main loop to see what processes should be run
 bool ElAccelEventFlag = false;
@@ -349,6 +356,7 @@ void setup() {
 
 // This is the super loop where we will be keeping track of counters, setting eventflags and calling proccess base on if any event flags were set
 void loop() {
+  //Serial.println("...In super-loop");
   
   //check if temp sensors are ready to be read. Read every 1s
   if(eltempcounter >= eltempthreshold){
@@ -419,8 +427,8 @@ void loop() {
 
     //ofstream dhtTempFile ("azMountTemp.txt");
     //ofstream dhtHumFile ("azMountHum.txt");
-    Serial.print("DHT22 Sample Number: ");
-    Serial.println(dhtDataCollectionTimer);
+    //Serial.print("DHT22 Sample Number: ");
+    //Serial.println(dhtDataCollectionTimer);
     dhtDataCollectionTimer++;
     
     if(isnan(elMountTempData) || isnan(elMountHumData) ){
@@ -451,6 +459,8 @@ void loop() {
     if(InitAzEncoderFlag){
       azEncoder.procAzEnEvent();         
     }
+
+    Serial.println("Encoder packet...");
     //Send only the encoder information to the Control Room
     uint32_t dataSize = calcTransitSize(0, 0, 0, 0, 0, elEncoder.buffer.size(), azEncoder.buffer.size(), 0, 0); // determine the size of the array that needs to be alocated
     uint8_t *dataToSend;
@@ -467,6 +477,34 @@ void loop() {
     // Send packet to Control Room
     SendDataToControlRoom(dataToSend, dataSize, ControlRoomIP, TCPPORT, client);
     
+    //controlRoomClient = server.available();
+
+    //Serial.println("Waiting for client");
+
+    //Wait till we recieve data from the Control Room
+    //while(!controlRoomClient){
+    //  delay(1);
+    //  controlRoomClient = server.available();
+    //}
+
+    
+    //Serial.println("Client found");
+
+    // Read the fan control packet
+    size_t bytes = controlRoomClient.available();
+    uint8_t *ptr;
+    uint8_t data[bytes] = {0};
+    ptr = data;
+
+    FanCommandFlag = data[0] == 0 ? false : true;
+
+    if(FanCommandFlag == true){
+      Serial.println("FAN ON");
+    }
+    else if(FanCommandFlag == false){
+      Serial.println("FAN OLD");
+    }
+
     free(dataToSend);
   }
 
@@ -567,6 +605,37 @@ void loop() {
       Serial.println("Software Reset");
       SCB_AIRCR = 0x05FA0004;  // does a software reset
     }
+
+
+    // wait for a Control Room client:
+    /*Serial.println("Waiting for client");
+    EthernetClient controlRoomClient = server.available();
+  
+    //Wait till we recieve data from the Control Room
+    while(!controlRoomClient){
+      delay(1);
+      controlRoomClient = server.available();
+    }
+    Serial.println("Client found");
+    digitalWrite(LED4, LOW);  // Turn on LED4 to show connection to Control Room
+
+    // Read the fan control packet
+    size_t bytes = controlRoomClient.available();
+    uint8_t *ptr;
+    uint8_t data[bytes] = {0};
+    ptr = data;
+
+    FanCommandFlag = data[0] == 0 ? false : true;
+    
+
+    if(FanCommandFlag == true){
+      Serial.println("FAN ON");
+    }
+    else if(FanCommandFlag == false){
+      Serial.println("FAN OLD");
+    }
+
+    */
 
     free(dataToSend);
 
