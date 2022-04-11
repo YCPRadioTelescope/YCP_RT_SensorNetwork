@@ -103,8 +103,9 @@ void prepairTransit(uint8_t *reply, uint32_t dataSize, std::queue <accDump> *Acc
     reply[3] = (dataSize & 0x0000ff00) >> 8;
     reply[4] = dataSize & 0x000000ff;
     // Sensor Statuses
-    reply[5] = (sensorStatuses & 0xff00) >> 8;
-    reply[6] = (sensorStatuses & 0x00ff);
+    reply[5] = (sensorStatuses & 0x00ff);
+    reply[6] = (sensorStatuses & 0xff00) >> 8;
+    
     // Sensor Error Codes
     reply[7] = (sensorErrors & 0x00ff0000) >> 16;   
     reply[8] = (sensorErrors & 0x0000ff00) >> 8;

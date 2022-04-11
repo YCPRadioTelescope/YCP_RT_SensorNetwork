@@ -102,7 +102,7 @@ bool InitAzAccelFlag;
 bool InitCbAccelFlag;
 bool InitAmbTempFlag;
 
-bool FanCommandFlag;
+bool FanCommandFlag = false;
 
 // Event flags that are check in the main loop to see what processes should be run
 bool ElAccelEventFlag = false;
@@ -218,7 +218,7 @@ void setup() {
   
   // wait for a Control Room client:
   Serial.println("Waiting for client");
-  EthernetClient controlRoomClient = server.available();
+  controlRoomClient = server.available();
   
   //Wait till we recieve data from the Control Room
   while(!controlRoomClient){
@@ -467,7 +467,7 @@ void loop() {
     dataToSend = (uint8_t *)malloc(dataSize * sizeof(uint8_t)); 
 
     // Sensor status is either okay or errored 
-    uint8_t sensorStatus = (tempSensorAmb.status << 8 | adxlEl.status << 7 | adxlAz.status << 6 | adxlCb.status << 5 | 
+    uint16_t sensorStatus = (FanCommandFlag << 9 | tempSensorAmb.status << 8 | adxlEl.status << 7 | adxlAz.status << 6 | adxlCb.status << 5 | 
                             tempSensorEl1.status << 4 | tempSensorEl2.status << 3 | tempSensorAz1.status << 2 | tempSensorAz2.status << 1 | azEncoder.status);
     // Adxl self test plus error codes for temp sensors and Azimuth encoder. First byte has self tests, second has adxl error codes and azimuth error code, third has temp error codes
     uint32_t sensorErrors = (tempSensorAmb.error_code << 19 | adxlEl.self_test << 18 | adxlAz.self_test << 17 | adxlCb.self_test << 16 | adxlEl.error_code << 14 | adxlAz.error_code << 12 | adxlCb.error_code << 10 | azEncoder.error_code << 8 |
@@ -477,24 +477,24 @@ void loop() {
     // Send packet to Control Room
     SendDataToControlRoom(dataToSend, dataSize, ControlRoomIP, TCPPORT, client);
     
-    //controlRoomClient = server.available();
+    size_t bytes = client.available();
 
-    //Serial.println("Waiting for client");
+    Serial.println("Waiting for client");
 
-    //Wait till we recieve data from the Control Room
-    //while(!controlRoomClient){
-    //  delay(1);
-    //  controlRoomClient = server.available();
-    //}
+    // Wait till we recieve data from the Control Room
+    while(!bytes){
+     delay(1);
+     bytes = client.available();
+    }
 
-    
-    //Serial.println("Client found");
+    Serial.println("Client found");
 
     // Read the fan control packet
-    size_t bytes = controlRoomClient.available();
+    size_t bytes = client.available();
     uint8_t *ptr;
     uint8_t data[bytes] = {0};
     ptr = data;
+    client.read(ptr, bytes);
 
     FanCommandFlag = data[0] == 0 ? false : true;
 
@@ -589,7 +589,7 @@ void loop() {
     dataToSend = (uint8_t *)malloc(dataSize * sizeof(uint8_t));
     
     // Sensor status is either okay or errored 
-    uint8_t sensorStatus = (tempSensorAmb.status << 8 | adxlEl.status << 7 | adxlAz.status << 6 | adxlCb.status << 5 | 
+    uint16_t sensorStatus = (FanCommandFlag << 9 | tempSensorAmb.status << 8 | adxlEl.status << 7 | adxlAz.status << 6 | adxlCb.status << 5 | 
                             tempSensorEl1.status << 4 | tempSensorEl2.status << 3 | tempSensorAz1.status << 2 | tempSensorAz2.status << 1 | azEncoder.status);
     // Adxl self test plus error codes for temp sensors and Azimuth encoder. First byte has self tests, second has adxl error codes and azimuth error code, third has temp error codes
     uint32_t sensorErrors = (tempSensorAmb.error_code << 19 | adxlEl.self_test << 18 | adxlAz.self_test << 17 | adxlCb.self_test << 16 | adxlEl.error_code << 14 | adxlAz.error_code << 12 | adxlCb.error_code << 10 | azEncoder.error_code << 8 |
@@ -608,25 +608,25 @@ void loop() {
 
 
     // wait for a Control Room client:
-    /*Serial.println("Waiting for client");
-    EthernetClient controlRoomClient = server.available();
-  
-    //Wait till we recieve data from the Control Room
-    while(!controlRoomClient){
-      delay(1);
-      controlRoomClient = server.available();
+    Serial.println("Waiting for client");
+    size_t bytes = client.available();
+
+    // Wait till we recieve data from the Control Room
+    while(!bytes){
+     delay(1);
+     bytes = client.available();
     }
+
     Serial.println("Client found");
-    digitalWrite(LED4, LOW);  // Turn on LED4 to show connection to Control Room
 
     // Read the fan control packet
-    size_t bytes = controlRoomClient.available();
+    bytes = client.available();
     uint8_t *ptr;
     uint8_t data[bytes] = {0};
     ptr = data;
+    client.read(ptr, bytes);
 
     FanCommandFlag = data[0] == 0 ? false : true;
-    
 
     if(FanCommandFlag == true){
       Serial.println("FAN ON");
@@ -634,8 +634,6 @@ void loop() {
     else if(FanCommandFlag == false){
       Serial.println("FAN OLD");
     }
-
-    */
 
     free(dataToSend);
 
