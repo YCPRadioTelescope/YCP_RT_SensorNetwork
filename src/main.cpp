@@ -27,6 +27,7 @@
 #define AdxlElPowerPin 32
 #define AdxlAzPowerPin 4
 #define AdxlCbPowerPin 5
+#define FanControl 15
 #define LED1 38
 #define LED2 37
 #define LED3 36
@@ -102,6 +103,35 @@ bool InitAzAccelFlag;
 bool InitCbAccelFlag;
 bool InitAmbTempFlag;
 
+int TimerPeriod;
+int EthernetPeriod;
+int TemperaturePeriod;
+int EncoderPeriod;
+
+byte ElAccelSamplingFreq;
+byte ElAccelGRange;
+byte ElAccelFIFOSize;
+byte ElAccelXOffset;
+byte ElAccelYOffset;
+byte ElAccelZOffset;
+byte ElAccResolution;
+
+byte AzAccelSamplingFreq;
+byte AzAccelGRange;
+byte AzAccelFIFOSize;
+byte AzAccelXOffset;
+byte AzAccelYOffset;
+byte AzAccelZOffset;
+byte AzAccResolution; 
+
+byte CbAccelSamplingFreq;
+byte CbAccelGRange;
+byte CbAccelFIFOSize;
+byte CbAccelXOffset;
+byte CbAccelYOffset;
+byte CbAccelZOffset;
+byte CbAccResolution;
+
 bool FanCommandFlag = false;
 
 // Event flags that are check in the main loop to see what processes should be run
@@ -116,6 +146,7 @@ int elmounttempcounter = 0;
 int aztempcounter = 0;    
 int encodercounter = 0;
 static int dhtDataCollectionTimer = 1;
+static int fanTimeout = 0;
 
 // Keeps track of the ms passed since control room connection
 uint64_t connectionTimeElapsed = 0;
@@ -134,9 +165,9 @@ int elmounttempthreshold = 1000 + elmounttempoffset;
 int encoderthreshold = 20;
 
 // XYZ offsets for accelerometer calibration
-byte cbAccelXOffset = -1;
-byte cbAccelYOffset = -4;
-byte cbAccelZOffset = 4;
+//byte cbAccelXOffset = -1;
+//byte cbAccelYOffset = -4;
+//byte cbAccelZOffset = 4;
 
 // Timer interrupt
 void TimerEvent_ISR(){
@@ -155,6 +186,8 @@ void TimerEvent_ISR(){
   if(InitAmbTempFlag){
     elmounttempcounter++;
   }
+
+  fanTimeout++;
   
   // Increment the time elapsed
   connectionTimeElapsed++;
@@ -246,6 +279,34 @@ void setup() {
   InitCbAccelFlag = data[6] == 0 ? false : true;
   InitAmbTempFlag = data[7] == 0 ? false : true;
 
+  TimerPeriod = ((data[11]) << 24) | ((data[10]) << 16) | ((data[9]) << 8) | (data[8]);
+  EthernetPeriod = ((data[15]) << 24) | ((data[14]) << 16) | ((data[13]) << 8) | (data[12]);
+  TemperaturePeriod = ((data[19]) << 24) | ((data[18]) << 16) | ((data[17]) << 8) | (data[16]);
+  EncoderPeriod = ((data[23]) << 24) | ((data[22]) << 16) | ((data[21]) << 8) | (data[20]);
+
+  ElAccelSamplingFreq = data[24];
+  ElAccelGRange = data[25];
+  ElAccelFIFOSize = data[26];
+  ElAccelXOffset = data[27];
+  ElAccelYOffset = data[28];
+  ElAccelZOffset = data[29];
+  ElAccResolution = data[30];
+
+  AzAccelSamplingFreq = data[31];
+  AzAccelGRange = data[32];
+  AzAccelFIFOSize = data[33];
+  AzAccelXOffset = data[34];
+  AzAccelYOffset = data[35];
+  AzAccelZOffset = data[36];
+  AzAccResolution = data[37]; 
+
+  CbAccelSamplingFreq = data[38];
+  CbAccelGRange = data[39];
+  CbAccelFIFOSize = data[40];
+  CbAccelXOffset = data[41];
+  CbAccelYOffset = data[42];
+  CbAccelZOffset = data[43];
+  CbAccResolution = data[44];
 
   // Send acknoledgement to Control Room
   controlRoomClient.write("acknoledge");
@@ -263,7 +324,7 @@ void setup() {
   if(InitElAccelFlag){
     digitalWrite(AdxlElPowerPin, HIGH);
     delay(10);
-    adxlEl.init();                               // initialize an ADXL345 to communicate using I2C
+    adxlEl.init(ElAccelSamplingFreq, ElAccelXOffset, ElAccelYOffset, ElAccelZOffset, ElAccelFIFOSize);                                    // initialize an ADXL345 to communicate using I2C
     Serial.println();
     Serial.println("El Adxl Initialized");
     Serial.println("Starting El Adxl Self-Test");
@@ -289,7 +350,7 @@ void setup() {
   if(InitAzAccelFlag){
     digitalWrite(AdxlAzPowerPin, HIGH);
     delay(10);
-    adxlAz.init();                               // initialize an ADXL345 to communicate using I2C
+    adxlAz.init(AzAccelSamplingFreq, AzAccelXOffset, AzAccelYOffset, AzAccelZOffset, AzAccelFIFOSize);                               // initialize an ADXL345 to communicate using I2C
     Serial.println();
     Serial.println("Az Adxl Initialized");
     Serial.println("Starting Az ADXL Self-Test");
@@ -315,7 +376,7 @@ void setup() {
   if(InitCbAccelFlag){
     digitalWrite(AdxlCbPowerPin, HIGH);
     delay(10);
-    adxlCb.init(ADXL345_BW_50, cbAccelXOffset, cbAccelYOffset, cbAccelZOffset); // initialize an ADXL345 to communicate using I2C
+    adxlCb.init(CbAccelSamplingFreq, CbAccelXOffset, CbAccelYOffset, CbAccelZOffset, CbAccelFIFOSize); // initialize an ADXL345 to communicate using I2C
     Serial.println();
     Serial.println("Cb Adxl Initialized");
     Serial.println("Starting Cb ADXL Self-Test");
@@ -346,6 +407,8 @@ void setup() {
 
   tempSensorAmb.status = TEMPERATURE_NO_ERROR;
   tempSensorAmb.status = TEMPERATURE_OK;
+
+  pinMode(FanControl, OUTPUT);
   //Temporary initialization to OK for DHT22
   //Will eventually need to implement test at initialization for DHT22
   
@@ -356,7 +419,10 @@ void setup() {
 
 // This is the super loop where we will be keeping track of counters, setting eventflags and calling proccess base on if any event flags were set
 void loop() {
-  //Serial.println("...In super-loop");
+  Serial.println("Timer period: ");
+  Serial.println(TimerPeriod);
+  Serial.println("CB Acc Y Offset: ");
+  Serial.println(CbAccelYOffset);
   
   //check if temp sensors are ready to be read. Read every 1s
   if(eltempcounter >= eltempthreshold){
@@ -460,9 +526,8 @@ void loop() {
       azEncoder.procAzEnEvent();         
     }
 
-    Serial.println("Encoder packet...");
     //Send only the encoder information to the Control Room
-    uint32_t dataSize = calcTransitSize(0, 0, 0, 0, 0, elEncoder.buffer.size(), azEncoder.buffer.size(), 0, 0); // determine the size of the array that needs to be alocated
+    uint32_t dataSize = calcTransitSize(0, 0, adxlAz.data_size, 0, 0, elEncoder.buffer.size(), azEncoder.buffer.size(), 0, 0); // determine the size of the array that needs to be alocated
     uint8_t *dataToSend;
     dataToSend = (uint8_t *)malloc(dataSize * sizeof(uint8_t)); 
 
@@ -473,7 +538,7 @@ void loop() {
     uint32_t sensorErrors = (tempSensorAmb.error_code << 19 | adxlEl.self_test << 18 | adxlAz.self_test << 17 | adxlCb.self_test << 16 | adxlEl.error_code << 14 | adxlAz.error_code << 12 | adxlCb.error_code << 10 | azEncoder.error_code << 8 |
                              tempSensorEl1.error_code << 6 | tempSensorEl2.error_code << 4 | tempSensorAz1.error_code << 2 | tempSensorAz2.error_code);
     // Create packet to send to Control Room
-    prepairTransit(dataToSend, dataSize, &emptyAccBuff, &emptyAccBuff, &emptyAccBuff, &emptyBuff, &emptyBuff, &elEncoder.buffer, &azEncoder.buffer, &emptyDhtBuff, &emptyDhtBuff, sensorStatus, sensorErrors);
+    prepairTransit(dataToSend, dataSize, &emptyAccBuff, &emptyAccBuff, &adxlAz.buffer, &emptyBuff, &emptyBuff, &elEncoder.buffer, &azEncoder.buffer, &emptyDhtBuff, &emptyDhtBuff, sensorStatus, sensorErrors);
     // Send packet to Control Room
     SendDataToControlRoom(dataToSend, dataSize, ControlRoomIP, TCPPORT, client);
     
@@ -482,7 +547,8 @@ void loop() {
     Serial.println("Waiting for client");
 
     // Wait till we recieve data from the Control Room
-    while(!bytes){
+    fanTimeout = 0;
+    while((!bytes) && (fanTimeout < 500)){
      delay(1);
      bytes = client.available();
     }
@@ -490,7 +556,7 @@ void loop() {
     Serial.println("Client found");
 
     // Read the fan control packet
-    size_t bytes = client.available();
+    bytes = client.available();
     uint8_t *ptr;
     uint8_t data[bytes] = {0};
     ptr = data;
@@ -500,12 +566,17 @@ void loop() {
 
     if(FanCommandFlag == true){
       Serial.println("FAN ON");
+      digitalWrite(FanControl, HIGH);
     }
     else if(FanCommandFlag == false){
       Serial.println("FAN OLD");
+      digitalWrite(FanControl, LOW);
     }
 
     free(dataToSend);
+
+    adxlAz.data_size = 0;     //BADA BING
+
   }
 
   if(ElAccelEventFlag){
@@ -578,12 +649,11 @@ void loop() {
       adxlCb.status = ADXL345_ERROR;
     }
 
-    uint32_t dataSize = calcTransitSize(adxlEl.data_size, adxlAz.data_size, adxlCb.data_size, tempSensorElBuffer.size(), tempSensorAzBuffer.size(),0,0, tempAmbBuffer.size(), humidityAmbBuffer.size()); // determine the size of the array that needs to be alocated
+    uint32_t dataSize = calcTransitSize(adxlEl.data_size, adxlAz.data_size, 0, tempSensorElBuffer.size(), tempSensorAzBuffer.size(),0,0, tempAmbBuffer.size(), humidityAmbBuffer.size()); // determine the size of the array that needs to be alocated
     
     // Clear accelerometer data sizes
     adxlEl.data_size = 0;
     adxlAz.data_size = 0;
-    adxlCb.data_size = 0;
 
     uint8_t *dataToSend;
     dataToSend = (uint8_t *)malloc(dataSize * sizeof(uint8_t));
@@ -595,7 +665,7 @@ void loop() {
     uint32_t sensorErrors = (tempSensorAmb.error_code << 19 | adxlEl.self_test << 18 | adxlAz.self_test << 17 | adxlCb.self_test << 16 | adxlEl.error_code << 14 | adxlAz.error_code << 12 | adxlCb.error_code << 10 | azEncoder.error_code << 8 |
                              tempSensorEl1.error_code << 6 | tempSensorEl2.error_code << 4 | tempSensorAz1.error_code << 2 | tempSensorAz2.error_code);
     
-    prepairTransit(dataToSend, dataSize, &adxlEl.buffer, &adxlAz.buffer, &adxlCb.buffer, &tempSensorElBuffer, &tempSensorAzBuffer, &emptyBuff, &emptyBuff, &tempAmbBuffer, &humidityAmbBuffer, sensorStatus, sensorErrors);
+    prepairTransit(dataToSend, dataSize, &adxlEl.buffer, &adxlAz.buffer, &emptyAccBuff, &tempSensorElBuffer, &tempSensorAzBuffer, &emptyBuff, &emptyBuff, &tempAmbBuffer, &humidityAmbBuffer, sensorStatus, sensorErrors);
 
     // The Control Room has the option to close the server to cause the embeded system to reset
     if(client.connected()){
@@ -612,7 +682,8 @@ void loop() {
     size_t bytes = client.available();
 
     // Wait till we recieve data from the Control Room
-    while(!bytes){
+    fanTimeout = 0;
+    while((!bytes) && (fanTimeout < 500)){
      delay(1);
      bytes = client.available();
     }
@@ -630,9 +701,11 @@ void loop() {
 
     if(FanCommandFlag == true){
       Serial.println("FAN ON");
+      digitalWrite(FanControl, HIGH);
     }
     else if(FanCommandFlag == false){
       Serial.println("FAN OLD");
+      digitalWrite(FanControl, LOW);
     }
 
     free(dataToSend);

@@ -151,14 +151,14 @@ void ADXL345::init(){
   writeToI2C(ADXL345_BW_RATE, ADXL345_NORMAL_POWER_MODE << 4 | ADXL345_BW_400); // (000| filler bits), (0| normal power mode), (1101| 800Hz sampling)
 }
 
-void ADXL345::init(byte samplingRate, byte xOff, byte yOff, byte zOff){
+void ADXL345::init(byte samplingRate, byte xOff, byte yOff, byte zOff, byte fifoSize){
 
   writeToI2C(ADXL345_DATA_FORMAT, ADXL345_DISABLE_SELF_TEST <<  7 | ADXL345_4_WIRE_SPI_MODE << 6 | ADXL345_INTERUPT_HIGH << 5 | ADXL345_FULL_RESOLUTION_MODE << 3 | ADXL345_RIGHT_JUSTIFY << 2 | ADXL345_RANGE_16_G); // (0| disable self test), (0| 4-wire SPI mode), (0| interrupts active high), (0| fill bit), (1| full-resolution), (0| right-justified), (11| 16 g mode)
   powerOn();                     // Power on the ADXL345
   
   setInterruptMapping(ADXL345_INT_WATERMARK_BIT, ADXL345_INT1_PIN);    // Map Watermark interrupt to int pin 1
   setInterrupt(ADXL345_INT_WATERMARK_BIT, 1);                          // Enable Watermark interrupt 
-  writeToI2C(ADXL345_FIFO_CTL,ADXL345_STREAM_MODE <<  6 | ADXL345_INT1_PIN << 5 | ADXL345_THIRTY_TWO_SAMPLES);			// (10|FIFO mode) (0|trigger to INT1) (11111|trigger at 32 samples)
+  writeToI2C(ADXL345_FIFO_CTL,ADXL345_STREAM_MODE <<  6 | ADXL345_INT1_PIN << 5 | fifoSize);			// (10|FIFO mode) (0|trigger to INT1) (11111|trigger at 32 samples)
   writeToI2C(ADXL345_BW_RATE, ADXL345_NORMAL_POWER_MODE << 4 | samplingRate); // (000| filler bits), (0| normal power mode), (specified sampling rate)
   
   // Write XYZ offsets to offset registers
