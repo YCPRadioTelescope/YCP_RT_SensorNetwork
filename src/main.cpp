@@ -15,6 +15,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <list>
 
 #define TempEl1Pin 0
 #define TempEl2Pin 1
@@ -54,6 +55,7 @@ ADXL345 adxlAz = ADXL345(Wire1);
 ADXL345 adxlCb = ADXL345(Wire2);
 ElevationEncoder elEncoder = ElevationEncoder();
 AzimuthEncoder azEncoder = AzimuthEncoder();
+int azEncSampleCounter = 0;
 
 //ethernet data
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
@@ -85,6 +87,8 @@ std::queue <int16_t> emptyBuff;
 std::queue <accDump> emptyAccBuff;
 std::queue <float> emptyDhtBuff;
 
+std::list<int16_t> azEnModeData;
+
 // Time for timmer interrupt
 int const TIMER_1MS = 1000;
 
@@ -107,6 +111,8 @@ int TimerPeriod;
 int EthernetPeriod;
 int TemperaturePeriod;
 int EncoderPeriod;
+
+int azModeCounterTemp;
 
 byte ElAccelSamplingFreq;
 byte ElAccelGRange;
@@ -419,11 +425,14 @@ void setup() {
 
 // This is the super loop where we will be keeping track of counters, setting eventflags and calling proccess base on if any event flags were set
 void loop() {
-  Serial.println("Timer period: ");
-  Serial.println(TimerPeriod);
-  Serial.println("CB Acc Y Offset: ");
-  Serial.println(CbAccelYOffset);
   
+  // Read the azimuth absolute encoder every iteration of the superloop. It adds every reading to its queue. The queue will be analyzed when the
+  // az encoder timer interrupt happens, in which we'll take the mode of the readings
+  if(azEncSampleCounter < 100){
+    azEncoder.procAzEnEvent();
+    azEncSampleCounter++;
+  }
+
   //check if temp sensors are ready to be read. Read every 1s
   if(eltempcounter >= eltempthreshold){
 
@@ -516,18 +525,76 @@ void loop() {
   }
 
   //check if elevation encoder is ready to be read. Read every 20ms
-  if(encodercounter >= encoderthreshold){
+  if(encodercounter >= EncoderPeriod){
     encodercounter = 0;
     
     if(InitElEncoderFlag){
       elEncoder.procElEnEvent();
     }
     if(InitAzEncoderFlag){
-      azEncoder.procAzEnEvent();         
+      //azEncoder.procAzEnEvent();
+      while(azEncoder.buffer.size() != 0){
+          azEnModeData.push_front(azEncoder.buffer.front());
+          azEncoder.buffer.pop();
+      }
+
+      azEnModeData.sort();
+
+      Serial.println("Az Enc Data List");
+
+     
+      int number = azEnModeData.front();
+      int16_t mode = number;
+      int count = 1;
+      int countMode = 1;
+
+      azEnModeData.erase(azEnModeData.begin());
+
+      static int azEnModeSize = azEnModeData.size();
+      Serial.println("Az Enc Data List 2");
+
+      for(int i = 0; i < azEnModeSize; i++){
+        Serial.println("Az Enc Data List .");
+        Serial.print(i);
+        if (azEnModeData.front() == number){
+          Serial.println("Az Enc Data List ...");
+          count++;
+          azEnModeData.erase(azEnModeData.begin());
+        }
+        else{
+          Serial.println("Az Enc Data List ......");
+          if(count > countMode){
+            countMode = count;
+            mode = number;
+          }
+          count = 1;
+          number = azEnModeData.front();
+          azEnModeData.erase(azEnModeData.begin());
+        }
+      }
+      Serial.println("Az Enc Data List w");
+      azEncoder.buffer.empty();
+      azEnModeData.empty();
+
+
+      Serial.println("MODE MODE MODE MODE");
+
+      Serial.println(mode);
+
+      azEncoder.buffer.push(mode);
+
+      Serial.println("MODE MODE MODE MODE");
+      azEncSampleCounter = 0;
+      mode = 0;
+    
+    
+
     }
 
+
+
     //Send only the encoder information to the Control Room
-    uint32_t dataSize = calcTransitSize(0, 0, adxlAz.data_size, 0, 0, elEncoder.buffer.size(), azEncoder.buffer.size(), 0, 0); // determine the size of the array that needs to be alocated
+    uint32_t dataSize = calcTransitSize(0, 0, adxlCb.data_size, 0, 0, elEncoder.buffer.size(), azEncoder.buffer.size(), 0, 0); // determine the size of the array that needs to be alocated
     uint8_t *dataToSend;
     dataToSend = (uint8_t *)malloc(dataSize * sizeof(uint8_t)); 
 
@@ -538,7 +605,7 @@ void loop() {
     uint32_t sensorErrors = (tempSensorAmb.error_code << 19 | adxlEl.self_test << 18 | adxlAz.self_test << 17 | adxlCb.self_test << 16 | adxlEl.error_code << 14 | adxlAz.error_code << 12 | adxlCb.error_code << 10 | azEncoder.error_code << 8 |
                              tempSensorEl1.error_code << 6 | tempSensorEl2.error_code << 4 | tempSensorAz1.error_code << 2 | tempSensorAz2.error_code);
     // Create packet to send to Control Room
-    prepairTransit(dataToSend, dataSize, &emptyAccBuff, &emptyAccBuff, &adxlAz.buffer, &emptyBuff, &emptyBuff, &elEncoder.buffer, &azEncoder.buffer, &emptyDhtBuff, &emptyDhtBuff, sensorStatus, sensorErrors);
+    prepairTransit(dataToSend, dataSize, &emptyAccBuff, &emptyAccBuff, &adxlCb.buffer, &emptyBuff, &emptyBuff, &elEncoder.buffer, &azEncoder.buffer, &emptyDhtBuff, &emptyDhtBuff, sensorStatus, sensorErrors);
     // Send packet to Control Room
     SendDataToControlRoom(dataToSend, dataSize, ControlRoomIP, TCPPORT, client);
     
@@ -553,29 +620,35 @@ void loop() {
      bytes = client.available();
     }
 
-    Serial.println("Client found");
+    if(fanTimeout < 500){
+      Serial.println("Client found");
 
-    // Read the fan control packet
-    bytes = client.available();
-    uint8_t *ptr;
-    uint8_t data[bytes] = {0};
-    ptr = data;
-    client.read(ptr, bytes);
+      // Read the fan control packet
+      bytes = client.available();
+      uint8_t *ptr;
+      uint8_t data[bytes] = {0};
+      ptr = data;
+      client.read(ptr, bytes);
 
-    FanCommandFlag = data[0] == 0 ? false : true;
+      FanCommandFlag = data[0] == 0 ? false : true;
 
-    if(FanCommandFlag == true){
-      Serial.println("FAN ON");
-      digitalWrite(FanControl, HIGH);
+      if(FanCommandFlag == true){
+        Serial.println("FAN ON");
+        digitalWrite(FanControl, HIGH);
+      }
+      else if(FanCommandFlag == false){
+        Serial.println("FAN OLD");
+        digitalWrite(FanControl, LOW);
+      }
+
     }
-    else if(FanCommandFlag == false){
-      Serial.println("FAN OLD");
+    else{
       digitalWrite(FanControl, LOW);
     }
-
+    Serial.println("about to free data...");
     free(dataToSend);
 
-    adxlAz.data_size = 0;     //BADA BING
+    adxlCb.data_size = 0;     //BADA BING
 
   }
 
@@ -688,26 +761,32 @@ void loop() {
      bytes = client.available();
     }
 
-    Serial.println("Client found");
+    if(fanTimeout < 500){
+      Serial.println("Client found");
 
-    // Read the fan control packet
-    bytes = client.available();
-    uint8_t *ptr;
-    uint8_t data[bytes] = {0};
-    ptr = data;
-    client.read(ptr, bytes);
+      // Read the fan control packet
+      bytes = client.available();
+      uint8_t *ptr;
+      uint8_t data[bytes] = {0};
+      ptr = data;
+      client.read(ptr, bytes);
 
-    FanCommandFlag = data[0] == 0 ? false : true;
+      FanCommandFlag = data[0] == 0 ? false : true;
 
-    if(FanCommandFlag == true){
-      Serial.println("FAN ON");
-      digitalWrite(FanControl, HIGH);
+      if(FanCommandFlag == true){
+        Serial.println("FAN ON");
+        digitalWrite(FanControl, HIGH);
+      }
+      else if(FanCommandFlag == false){
+        Serial.println("FAN OLD");
+        digitalWrite(FanControl, LOW);
+      }
+
     }
-    else if(FanCommandFlag == false){
-      Serial.println("FAN OLD");
+    else{
       digitalWrite(FanControl, LOW);
     }
-
+    Serial.println("about to free data...");
     free(dataToSend);
 
     // Reset temp sensors if both fail. There is a possible that they will eventually recover
