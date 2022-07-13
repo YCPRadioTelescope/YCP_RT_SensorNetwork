@@ -29,6 +29,7 @@
 #define AdxlAzPowerPin 4
 #define AdxlCbPowerPin 5
 #define FanControl 15
+#define ElEncAvgNumSamp 200
 #define LED1 38
 #define LED2 37
 #define LED3 36
@@ -151,8 +152,12 @@ int eltempcounter = 0;
 int elmounttempcounter = 0;
 int aztempcounter = 0;    
 int encodercounter = 0;
+int elEncCounter = 0;
+int elEncRunAvgFlg = 0;
 static int dhtDataCollectionTimer = 1;
 static int fanTimeout = 0;
+
+int elEncRunAvg [ElEncAvgNumSamp];
 
 // Keeps track of the ms passed since control room connection
 uint64_t connectionTimeElapsed = 0;
@@ -425,12 +430,29 @@ void setup() {
 
 // This is the super loop where we will be keeping track of counters, setting eventflags and calling proccess base on if any event flags were set
 void loop() {
-  
+  Serial.println("Top of loop");
   // Read the azimuth absolute encoder every iteration of the superloop. It adds every reading to its queue. The queue will be analyzed when the
   // az encoder timer interrupt happens, in which we'll take the mode of the readings
-  if(azEncSampleCounter < 100){
-    azEncoder.procAzEnEvent();
-    azEncSampleCounter++;
+
+  if(InitAzEncoderFlag){
+    if(azEncSampleCounter < 100){
+      azEncoder.procAzEnEvent();
+      azEncSampleCounter++;
+    }
+
+  }
+
+  //int elEnDigData = analogRead(40);
+
+  if(InitElEncoderFlag){
+    if(elEncCounter == ElEncAvgNumSamp){
+    elEncCounter = 0;
+    if(elEncRunAvgFlg == 0){
+      elEncRunAvgFlg = 1;
+    }
+  }
+    elEncRunAvg[elEncCounter] = analogRead(40);
+    elEncCounter++;
   }
 
   //check if temp sensors are ready to be read. Read every 1s
@@ -529,7 +551,30 @@ void loop() {
     encodercounter = 0;
     
     if(InitElEncoderFlag){
-      elEncoder.procElEnEvent();
+      //elEncoder.procElEnEvent();
+      int sum = 0;
+      int average;
+
+      if(elEncRunAvgFlg != 0){
+        for(int i = 0; i < ElEncAvgNumSamp; i++){
+          sum = sum + elEncRunAvg[i];
+        }
+        average = sum/ElEncAvgNumSamp;
+      }
+      else{
+        for(int i = 0; i < elEncCounter; i++){
+          sum = sum + elEncRunAvg[i];
+        }
+        average = sum/elEncCounter;
+      }
+
+      elEncoder.buffer.empty();
+      elEncoder.buffer.push(average);
+
+      Serial.print("Average: ");
+
+      Serial.println(average);
+
     }
     if(InitAzEncoderFlag){
       //azEncoder.procAzEnEvent();
@@ -540,9 +585,8 @@ void loop() {
 
       azEnModeData.sort();
 
-      Serial.println("Az Enc Data List");
+      //Serial.println("Az Enc Data List");
 
-     
       int number = azEnModeData.front();
       int16_t mode = number;
       int count = 1;
@@ -551,18 +595,13 @@ void loop() {
       azEnModeData.erase(azEnModeData.begin());
 
       static int azEnModeSize = azEnModeData.size();
-      Serial.println("Az Enc Data List 2");
 
       for(int i = 0; i < azEnModeSize; i++){
-        Serial.println("Az Enc Data List .");
-        Serial.print(i);
         if (azEnModeData.front() == number){
-          Serial.println("Az Enc Data List ...");
           count++;
           azEnModeData.erase(azEnModeData.begin());
         }
         else{
-          Serial.println("Az Enc Data List ......");
           if(count > countMode){
             countMode = count;
             mode = number;
@@ -572,18 +611,14 @@ void loop() {
           azEnModeData.erase(azEnModeData.begin());
         }
       }
-      Serial.println("Az Enc Data List w");
       azEncoder.buffer.empty();
       azEnModeData.empty();
 
-
-      Serial.println("MODE MODE MODE MODE");
+      Serial.print("MODE: ");
 
       Serial.println(mode);
 
       azEncoder.buffer.push(mode);
-
-      Serial.println("MODE MODE MODE MODE");
       azEncSampleCounter = 0;
       mode = 0;
     
