@@ -272,7 +272,7 @@ void setup() {
   Serial.println("Client found");
   digitalWrite(LED4, LOW);  // Turn on LED4 to show connection to Control Room
 
-  //wdog1.init();   // ~1.5s watchdog timeout
+  wdog1.init();   // ~1.5s watchdog timeout
 
   // Read the configuration packet
   size_t bytes = controlRoomClient.available();
@@ -423,7 +423,7 @@ void setup() {
   //Temporary initialization to OK for DHT22
   //Will eventually need to implement test at initialization for DHT22
   
- // wdog1.feed(); //reset watchdog
+  wdog1.feed(); //reset watchdog
 
 
 }
@@ -441,7 +441,8 @@ void loop() {
     }
 
   }
-
+  
+  Serial.println("Az enc successfully read");
   //int elEnDigData = analogRead(40);
 
   if(InitElEncoderFlag){
@@ -585,7 +586,7 @@ void loop() {
 
       azEnModeData.sort();
 
-      //Serial.println("Az Enc Data List");
+      Serial.println("Az Enc Data List");
 
       int number = azEnModeData.front();
       int16_t mode = number;
