@@ -14,7 +14,7 @@ void WatchDog::init() {
 // Reset the software
 void WatchDog::reset() {
    WDOG1_WCR &= ~WDOG_WCR_SRS;
-  // SCB_AIRCR = 0x05FA0004;  // does reset too, reported as TOUT
+   SCB_AIRCR = 0x05FA0004;  // does reset too, reported as TOUT
 }
 
 // Reset the watchdog timer
@@ -23,5 +23,5 @@ void WatchDog::feed() {
   // feed the dog
   WDOG1_WSR = 0x5555;
   WDOG1_WSR = 0xAAAA;
-  //Serial.printf("fed the dog\n");
+  
 }
