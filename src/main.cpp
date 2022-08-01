@@ -118,6 +118,7 @@ int TemperaturePeriod;
 int EncoderPeriod;
 
 int azModeCounterTemp;
+int nonZeroFlag;
 
 byte ElAccelSamplingFreq;
 byte ElAccelGRange;
@@ -158,6 +159,7 @@ int aztempcounter = 0;
 int encodercounter = 0;
 int elEncCounter = 0;
 int elEncRunAvgFlg = 0;
+int azSampleTimer = 0;
 static int dhtDataCollectionTimer = 1;
 static int fanTimeout = 0;
 
@@ -178,6 +180,7 @@ int eltempthreshold = 1000;
 int aztempthreshold = 1000 + aztempoffset;
 int elmounttempthreshold = 1000 + elmounttempoffset;
 int encoderthreshold = 20;
+int azEncSPIThreshold = 50;
 
 // XYZ offsets for accelerometer calibration
 //byte cbAccelXOffset = -1;
@@ -231,6 +234,8 @@ void TimerEvent_ISR(){
   if(InitAmbTempFlag){
     elmounttempcounter++;
   }
+
+  azSampleTimer++;
 
   fanTimeout++;
   
@@ -321,7 +326,9 @@ void setup() {
   Serial.println("Client found");
   digitalWrite(LED4, LOW);  // Turn on LED4 to show connection to Control Room
 
+  
   wdog1.init();   // ~1.5s watchdog timeout
+  Serial.println("Watchdog initialized");
 
   // Read the configuration packet
   size_t bytes = controlRoomClient.available();
@@ -368,6 +375,7 @@ void setup() {
   CbAccelZOffset = data[43];
   CbAccResolution = data[44];
 
+
   // Send acknoledgement to Control Room
   controlRoomClient.write("acknoledge");
   // give time to receive the data
@@ -377,9 +385,8 @@ void setup() {
 
 
   tempSensorAmb.begin();
-
-
-  // Setup ADXLs
+  //Serial.println("Received init packet........");
+    // Setup ADXLs
   pinMode(AdxlElPowerPin, OUTPUT);
   if(InitElAccelFlag){
     digitalWrite(AdxlElPowerPin, HIGH);
@@ -459,12 +466,14 @@ void setup() {
   }
 
   if(InitAzEncoderFlag){
+    //Serial.println("Az Encoder about to be initialized...");
+    //digitalWrite(LED2, LOW);
     azEncoder.init();                          // initialize azimuth encoder to communicate using SPI
-    Serial.println("Az Encoder Initialized");
+    //digitalWrite(37, LOW);
   }
 
   myTimer.begin(TimerEvent_ISR, TIMER_1MS);  // TimerEvent to run every millisecond
-
+  
   tempSensorAmb.status = TEMPERATURE_NO_ERROR;
   tempSensorAmb.status = TEMPERATURE_OK;
 
@@ -473,7 +482,6 @@ void setup() {
   //Will eventually need to implement test at initialization for DHT22
   
   wdog1.feed(); //reset watchdog
-
 
 }
 
@@ -484,11 +492,14 @@ void loop() {
   // az encoder timer interrupt happens, in which we'll take the mode of the readings
 
   if(InitAzEncoderFlag){
-    if(azEncSampleCounter < 100){
-      azEncoder.procAzEnEvent();
-      azEncSampleCounter++;
-    }
-
+    //if(azSampleTimer >  azEncSPIThreshold){
+      azSampleTimer = 0;
+      if(azEncSampleCounter < 100){
+        azEncSampleCounter += azEncoder.procAzEnEvent();
+        //digitalWrite(37, LOW);
+        //azEncSampleCounter++;
+      }
+    //}
   }
   
   //Serial.println("Az enc successfully read");
@@ -595,7 +606,7 @@ void loop() {
       humidityAmbBuffer.push(elMountHumData);
     }
   }
-
+  
   //check if elevation encoder is ready to be read. Read every 20ms
   if(encodercounter >= EncoderPeriod){
     encodercounter = 0;
@@ -628,23 +639,30 @@ void loop() {
     }
     if(InitAzEncoderFlag){
       //azEncoder.procAzEnEvent();
-      while(azEncoder.buffer.size() != 0){
+      nonZeroFlag = 0;
+      while((int) azEncoder.buffer.size() != 0){
           azEnModeData.push_front(azEncoder.buffer.front());
           azEncoder.buffer.pop();
+          nonZeroFlag = 1;
       }
 
       azEnModeData.sort();
 
-      Serial.println("Az Enc Data List");
+      
+        int16_t number = azEnModeData.front();
+        int16_t mode = number;
+        int count = 1;
+        int countMode = 1;
 
-      int number = azEnModeData.front();
-      int16_t mode = number;
-      int count = 1;
-      int countMode = 1;
+        if(nonZeroFlag == 1){
+          azEnModeData.erase(azEnModeData.begin());
+        }
+        else{
+          number = 0;
+          mode = 0;
+        }
 
-      azEnModeData.erase(azEnModeData.begin());
-
-      static int azEnModeSize = azEnModeData.size();
+        int16_t azEnModeSize = azEnModeData.size();
 
       for(int i = 0; i < azEnModeSize; i++){
         if (azEnModeData.front() == number){
@@ -664,16 +682,9 @@ void loop() {
       azEncoder.buffer.empty();
       azEnModeData.empty();
 
-      Serial.print("MODE: ");
-
-      Serial.println(mode);
-
       azEncoder.buffer.push(mode);
       azEncSampleCounter = 0;
-      mode = 0;
-    
-    
-
+      //mode = 0;
     }
 
 

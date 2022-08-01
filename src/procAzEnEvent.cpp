@@ -16,13 +16,15 @@ void AzimuthEncoder::init() {
   pinMode (zeroReset, OUTPUT);
   pinMode (zeroSet, OUTPUT);
   
+  //digitalWrite(37, LOW);
   //initilize the spi bus 0
   SPI.begin();
   //give time to do so
-  delay(100);
+  //delay(100);
+  //digitalWrite(37, LOW);
 }
 
-void AzimuthEncoder::procAzEnEvent() {
+int AzimuthEncoder::procAzEnEvent() {
   //create and initilze variables and arrays
   byte buff[6] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
   uint16_t angleRaw = 0;               //using a long to be safe, max output data is 22 bits but we only have 11 bits of resolution
@@ -32,6 +34,7 @@ void AzimuthEncoder::procAzEnEvent() {
   bool dataValid = false;
   bool dataSync = false;
   bool dataStale = false;
+  int goodDataFlag = 0;
 
   //int the spi bus at 200kHz with MSB first and SPI_MODE 1
   SPI.beginTransaction(SPISettings(200000, MSBFIRST, SPI_MODE0));
@@ -112,6 +115,7 @@ void AzimuthEncoder::procAzEnEvent() {
       status = AZ_ENCODER_OK;
       error_code = AZ_ENCODER_NO_ERROR;
       buffer.push(angleRaw);
+      goodDataFlag = 1;
 
   }
   
@@ -125,5 +129,7 @@ void AzimuthEncoder::procAzEnEvent() {
   //print final angle
   //Serial.print("Az angle: ");
   //Serial.println(angleFinal);
+
+  return goodDataFlag;
 }
 

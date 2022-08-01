@@ -17,5 +17,5 @@ public:
     std::queue <int16_t> buffer;
     AzimuthEncoder();
     void init(void);
-    void procAzEnEvent(void);
+    int procAzEnEvent(void);
 };
