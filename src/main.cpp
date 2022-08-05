@@ -13,7 +13,7 @@
 #include <NativeEthernet.h>
 #include <TimeLib.h>
 
-#include <iostream>
+//#include <iostream>   // Unused library. Not 32-bit aligned when compiled. Cannot be included for OTA Flashing.
 #include <fstream>
 #include <list>
 
