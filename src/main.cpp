@@ -32,7 +32,7 @@
 #define AdxlAzPowerPin 4
 #define AdxlCbPowerPin 5
 #define FanControl 15
-#define ElEncAvgNumSamp 200
+#define ElEncAvgNumSamp 10
 #define LED1 38
 #define LED2 37
 #define LED3 36
@@ -615,11 +615,21 @@ void loop() {
       //elEncoder.procElEnEvent();
       int sum = 0;
       int average;
+      int16_t elMin;
+      int16_t elMax;
 
       if(elEncRunAvgFlg != 0){
         for(int i = 0; i < ElEncAvgNumSamp; i++){
+          if (elEncRunAvg[i] < elMin) {
+            elMin = elEncRunAvg[i];
+
+          } else if (elEncRunAvg[i] > elMax) {
+            elMax = elEncRunAvg[i];
+          }
+
           sum = sum + elEncRunAvg[i];
         }
+
         average = sum/ElEncAvgNumSamp;
       }
       else{
@@ -630,6 +640,8 @@ void loop() {
       }
 
       elEncoder.buffer.empty();
+      elEncoder.buffer.push(elMin);
+      elEncoder.buffer.push(elMax);
       elEncoder.buffer.push(average);
 
       Serial.print("Average: ");
@@ -646,26 +658,44 @@ void loop() {
           nonZeroFlag = 1;
       }
 
-      azEnModeData.sort();
-
+      //azEnModeData.sort();
       
-        int16_t number = azEnModeData.front();
-        int16_t mode = number;
-        int count = 1;
-        int countMode = 1;
+        //int16_t number = azEnModeData.front();
+        //int16_t mode = number;
+        //int count = 1;
+        //int countMode = 1;
 
         if(nonZeroFlag == 1){
           azEnModeData.erase(azEnModeData.begin());
         }
         else{
-          number = 0;
-          mode = 0;
+          //number = 0;
+          //mode = 0;
         }
 
-        int16_t azEnModeSize = azEnModeData.size();
+      int16_t azEnModeSize = azEnModeData.size();
 
+      int16_t azMin = azEnModeData.front();
+      int16_t azMax = azEnModeData.front();
+      int16_t azTotal = 0;
+      int azAverage = 0;
+
+      for (int i = 0; i < azEnModeSize; i++) {
+        if (azEnModeData.get(i) < azMin) {
+          azMin = azEnModeData.get(i);
+
+        } else if (azEnModeData.get(i) > azMax) {
+          azMax = azEnModeData.get(i);
+        }
+
+        azTotal += azEnModeData.get(i);
+      }
+
+      azAverage = azTotal / azEnModeSize;
+
+      /*
       for(int i = 0; i < azEnModeSize; i++){
-        if (azEnModeData.front() == number){
+        if (azEnModeData.front() == number){azEncoder.buffer
           count++;
           azEnModeData.erase(azEnModeData.begin());
         }
@@ -679,10 +709,15 @@ void loop() {
           azEnModeData.erase(azEnModeData.begin());
         }
       }
+      */
+
       azEncoder.buffer.empty();
       azEnModeData.empty();
 
-      azEncoder.buffer.push(mode);
+      //azEncoder.buffer.push(mode);
+      azEncoder.buffer.push(azMin);
+      azEncoder.buffer.push(azMax);
+      azEncoder.buffer.push(azAverage);
       azEncSampleCounter = 0;
       //mode = 0;
     }
