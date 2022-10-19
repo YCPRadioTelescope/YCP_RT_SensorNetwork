@@ -92,7 +92,7 @@ std::queue <int16_t> emptyBuff;
 std::queue <accDump> emptyAccBuff;
 std::queue <float> emptyDhtBuff;
 
-std::list<int16_t> azEnModeData;
+std::vector<int16_t> azEnModeData;
 
 // Time for timmer interrupt
 int const TIMER_1MS = 1000;
@@ -654,7 +654,7 @@ void loop() {
       //azEncoder.procAzEnEvent();
       nonZeroFlag = 0;
       while((int) azEncoder.buffer.size() != 0){
-          azEnModeData.push_front(azEncoder.buffer.front());
+          azEnModeData.push_back(azEncoder.buffer.front());
           azEncoder.buffer.pop();
           nonZeroFlag = 1;
       }
@@ -682,14 +682,14 @@ void loop() {
       int azAverage = 0;
 
       for (int i = 0; i < azEnModeSize; i++) {
-        if (azEnModeData.get(i) < azMin) {
-          azMin = azEnModeData.get(i);
+        if (azEnModeData[i] < azMin) {
+          azMin = azEnModeData[i];
 
-        } else if (azEnModeData.get(i) > azMax) {
-          azMax = azEnModeData.get(i);
+        } else if (azEnModeData[i] > azMax) {
+          azMax = azEnModeData[i];
         }
 
-        azTotal += azEnModeData.get(i);
+        azTotal += azEnModeData[i];
       }
 
       azAverage = azTotal / azEnModeSize;
