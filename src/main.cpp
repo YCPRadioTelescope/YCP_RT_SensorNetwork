@@ -643,7 +643,7 @@ void loop() {
       elEncoder.buffer.push(elMin);
       elEncoder.buffer.push(elMax);
       elEncoder.buffer.push(average);
-      elEncoder.buffer.push(ElEncAvgNumSamp);
+      elEncoder.buffer.push((int16_t) ElEncAvgNumSamp);
 
       Serial.print("Average: ");
 
